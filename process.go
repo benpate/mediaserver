@@ -3,10 +3,12 @@ package mediaserver
 import (
 	"bytes"
 	"image"
-	_ "image/gif"
+	"image/gif"
 	"image/jpeg"
-	_ "image/png"
+	"image/png"
 	"io"
+
+	"github.com/chai2010/webp"
 
 	"github.com/benpate/derp"
 	"github.com/davecgh/go-spew/spew"
@@ -45,8 +47,23 @@ func (ms MediaServer) Process(file afero.File, fileSpec FileSpec) (io.Reader, er
 
 	var buffer bytes.Buffer
 
-	if err := jpeg.Encode(&buffer, img, nil); err != nil {
-		return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
+	switch fileSpec.Extension {
+	case ".gif":
+		if err := gif.Encode(&buffer, img, nil); err != nil {
+			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
+		}
+	case ".jpg", ".jpeg":
+		if err := jpeg.Encode(&buffer, img, nil); err != nil {
+			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
+		}
+	case ".png":
+		if err := png.Encode(&buffer, img); err != nil {
+			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
+		}
+	case ".webp":
+		if err := webp.Encode(&buffer, img, nil); err != nil {
+			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
+		}
 	}
 
 	return &buffer, err

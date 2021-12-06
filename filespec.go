@@ -55,10 +55,10 @@ func (ms *FileSpec) CacheFilename() string {
 
 	if ms.MimeCategory() == "image" {
 		if ms.Width != 0 {
-			buffer.WriteString("_" + convert.String(ms.Width))
+			buffer.WriteString("_w" + convert.String(ms.Width))
 		}
 		if ms.Height != 0 {
-			buffer.WriteString("_" + convert.String(ms.Height))
+			buffer.WriteString("_h" + convert.String(ms.Height))
 		}
 	}
 
