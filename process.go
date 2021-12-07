@@ -21,6 +21,7 @@ import (
 // cs.opensource.google/go/x/image/webp
 // github.com/jdeng/goheif
 
+// Process decodes an image file and applies all of the processing steps requested in the FileSpec
 func (ms MediaServer) Process(file afero.File, fileSpec FileSpec) (io.Reader, error) {
 
 	img, codec, err := exiffix.Decode(file)

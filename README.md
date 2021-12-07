@@ -8,7 +8,7 @@
 
 ## Image Resizing and Transcoding
 
-First Pass at a pure Go media server that manages uploads to your web application.  Automatically converts between GIF, JPG, PNG WEBP, HEIC file types, and resizes images via a URL-based API.
+First Pass at a pure Go media server that manages uploads to your web application.  Automatically converts between GIF, JPG, PNG, and WEBP file types, and resizes images via a URL-based API.
 
 ## Pull Requests Welcome
 

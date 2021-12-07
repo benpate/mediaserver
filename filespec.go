@@ -9,6 +9,8 @@ import (
 	"github.com/benpate/list"
 )
 
+// FileSpec represents all the parameters available for requesting a file.
+// This can be generated directly from a URL.
 type FileSpec struct {
 	Filename  string
 	Extension string
