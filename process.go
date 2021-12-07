@@ -9,9 +9,10 @@ import (
 	"io"
 
 	"github.com/chai2010/webp"
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/benpate/derp"
-	"github.com/davecgh/go-spew/spew"
+	"github.com/benpate/exiffix"
 	"github.com/muesli/smartcrop"
 	"github.com/muesli/smartcrop/nfnt"
 	"github.com/spf13/afero"
@@ -22,13 +23,11 @@ import (
 
 func (ms MediaServer) Process(file afero.File, fileSpec FileSpec) (io.Reader, error) {
 
-	img, codec, err := image.Decode(file)
+	img, codec, err := exiffix.Decode(file)
 
 	if err != nil {
 		return nil, derp.Wrap(err, "mediaserver.Resize", "Error decoding file using codec", file.Name(), codec)
 	}
-
-	spew.Dump("mediaServer.Process successful!", codec)
 
 	if fileSpec.Resize() {
 		analyzer := smartcrop.NewAnalyzer(nfnt.NewDefaultResizer())
@@ -45,22 +44,27 @@ func (ms MediaServer) Process(file afero.File, fileSpec FileSpec) (io.Reader, er
 
 	}
 
+	// Make a buffer to write the new file into
 	var buffer bytes.Buffer
 
 	switch fileSpec.Extension {
 	case ".gif":
+		spew.Dump("generating gif")
 		if err := gif.Encode(&buffer, img, nil); err != nil {
 			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
 		}
 	case ".jpg", ".jpeg":
+		spew.Dump("generating jpg")
 		if err := jpeg.Encode(&buffer, img, nil); err != nil {
 			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
 		}
 	case ".png":
+		spew.Dump("generating png")
 		if err := png.Encode(&buffer, img); err != nil {
 			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
 		}
 	case ".webp":
+		spew.Dump("generating webp")
 		if err := webp.Encode(&buffer, img, nil); err != nil {
 			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
 		}
