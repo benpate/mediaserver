@@ -26,7 +26,7 @@ func New(original afero.Fs, cache afero.Fs) MediaServer {
 func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 
 	// If the file exists in the cache, then we're in luck :)
-	if cached, err := ms.cache.Open(filespec.CacheFilename()); err == nil {
+	if cached, err := ms.cache.Open(filespec.CachePath()); err == nil {
 
 		defer cached.Close()
 
@@ -53,8 +53,21 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 		return derp.Wrap(err, "mediaserver.Get", "Error processing original file", filespec)
 	}
 
+	// Guarantee that a cache folder exists for this file
+	exists, err := afero.DirExists(ms.cache, filespec.CacheDir())
+
+	if err != nil {
+		return derp.Wrap(err, "mediaserver.Get", "Error locating directory for cached file", filespec)
+	}
+
+	if !exists {
+		if err := ms.cache.Mkdir(filespec.CacheDir(), 0666); err != nil {
+			return derp.Wrap(err, "mediaserver.Get", "Error creating directory for cached file", filespec)
+		}
+	}
+
 	// Create a new cached file and write the processed file into the cache
-	cached, err := ms.cache.Create(filespec.CacheFilename())
+	cached, err := ms.cache.Create(filespec.CachePath())
 
 	if err != nil {
 		return derp.Wrap(err, "mediaserver.Get", "Error creating cached file", filespec)
@@ -81,14 +94,14 @@ func (ms MediaServer) Put(filename string, file io.Reader) error {
 	destination, err := ms.original.Create(filename)
 
 	if err != nil {
-		return derp.Wrap(err, "ghost.handler.StepAttachmentUpload.Post", "Error creating media file in 'original' filesystem", filename)
+		return derp.Wrap(err, "mediaserver.Put", "Error creating media file in 'original' filesystem", filename)
 	}
 
 	defer destination.Close()
 
 	// Save the upload into the destination
 	if _, err = io.Copy(destination, file); err != nil {
-		return derp.Wrap(err, "ghost.handler.StepAttachmentUpload.Post", "Error writing media file in 'original' filesystem", filename)
+		return derp.Wrap(err, "mediaserver.Put", "Error writing media file in 'original' filesystem", filename)
 	}
 
 	return nil
@@ -97,7 +110,14 @@ func (ms MediaServer) Put(filename string, file io.Reader) error {
 // Delete completely removes a file from the MediaServer along with any cached files.
 func (ms MediaServer) Delete(filename string) error {
 
-	// TODO: write this function :)
+	if err := ms.original.Remove(filename); err != nil {
+		return derp.Wrap(err, "mediaserver.Delete", "Error removing media file in 'original' filesystem", filename)
+	}
+
+	if err := ms.cache.RemoveAll(filename); err != nil {
+		return derp.Wrap(err, "mediaserver.Delete", "Error removing media files in 'cache' filesystem", filename)
+	}
+
 	return nil
 }
 

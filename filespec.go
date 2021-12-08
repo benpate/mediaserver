@@ -48,6 +48,16 @@ func (ms *FileSpec) MimeCategory() string {
 	return list.Head(ms.MimeType, "/")
 }
 
+// CachePath returns the complete path (within the cache directory) to the file requested by this FileSpec
+func (ms *FileSpec) CachePath() string {
+	return ms.CacheDir() + "/" + ms.CacheFilename()
+}
+
+// CacheDir returns the name of the directory within the cache where versions of this file will be stored.
+func (ms *FileSpec) CacheDir() string {
+	return ms.Filename
+}
+
 // CacheFilename returns the filename to be used when retrieving this from the FileSpec cache.
 func (ms *FileSpec) CacheFilename() string {
 

@@ -22,7 +22,7 @@ import (
 // github.com/jdeng/goheif
 
 // Process decodes an image file and applies all of the processing steps requested in the FileSpec
-func (ms MediaServer) Process(file afero.File, fileSpec FileSpec) (io.Reader, error) {
+func (ms MediaServer) Process(file afero.File, filespec FileSpec) (io.Reader, error) {
 
 	img, codec, err := exiffix.Decode(file)
 
@@ -30,9 +30,13 @@ func (ms MediaServer) Process(file afero.File, fileSpec FileSpec) (io.Reader, er
 		return nil, derp.Wrap(err, "mediaserver.Resize", "Error decoding file using codec", file.Name(), codec)
 	}
 
-	if fileSpec.Resize() {
+	if filespec.Resize() {
 		analyzer := smartcrop.NewAnalyzer(nfnt.NewDefaultResizer())
-		topCrop, _ := analyzer.FindBestCrop(img, fileSpec.CacheWidth(), fileSpec.CacheHeight())
+		topCrop, err := analyzer.FindBestCrop(img, filespec.CacheWidth(), filespec.CacheHeight())
+
+		if err != nil {
+			return nil, derp.Wrap(err, "mediaserver.Resize", "Error finding best crop", filespec)
+		}
 
 		type SubImager interface {
 			SubImage(r image.Rectangle) image.Image
@@ -41,35 +45,35 @@ func (ms MediaServer) Process(file afero.File, fileSpec FileSpec) (io.Reader, er
 		img = img.(SubImager).SubImage(topCrop)
 
 		resizer := nfnt.NewDefaultResizer()
-		img = resizer.Resize(img, uint(fileSpec.Width), uint(fileSpec.Height))
-
+		img = resizer.Resize(img, uint(filespec.Width), uint(filespec.Height))
 	}
 
 	// Make a buffer to write the new file into
 	var buffer bytes.Buffer
 
-	switch fileSpec.Extension {
+	switch filespec.Extension {
 	case ".gif":
 		spew.Dump("generating gif")
 		if err := gif.Encode(&buffer, img, nil); err != nil {
-			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
+			return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file"))
 		}
 	case ".jpg", ".jpeg":
 		spew.Dump("generating jpg")
 		if err := jpeg.Encode(&buffer, img, nil); err != nil {
-			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
+			return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file"))
 		}
 	case ".png":
 		spew.Dump("generating png")
 		if err := png.Encode(&buffer, img); err != nil {
-			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
+			return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file"))
 		}
 	case ".webp":
 		spew.Dump("generating webp")
 		if err := webp.Encode(&buffer, img, nil); err != nil {
-			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
+			return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file"))
 		}
 	}
 
+	spew.Dump("success!")
 	return &buffer, err
 }
