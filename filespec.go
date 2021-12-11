@@ -63,7 +63,7 @@ func (ms *FileSpec) CacheFilename() string {
 
 	var buffer strings.Builder
 
-	buffer.WriteString(ms.Filename)
+	buffer.WriteString("cached")
 
 	if ms.MimeCategory() == "image" {
 		if ms.Width != 0 {

@@ -9,7 +9,6 @@ import (
 	"io"
 
 	"github.com/chai2010/webp"
-	"github.com/davecgh/go-spew/spew"
 
 	"github.com/benpate/derp"
 	"github.com/benpate/exiffix"
@@ -31,6 +30,9 @@ func (ms MediaServer) Process(file afero.File, filespec FileSpec) (io.Reader, er
 	}
 
 	if filespec.Resize() {
+
+		// TODO: Preserve aspect ratio when only width or height is provided.
+
 		analyzer := smartcrop.NewAnalyzer(nfnt.NewDefaultResizer())
 		topCrop, err := analyzer.FindBestCrop(img, filespec.CacheWidth(), filespec.CacheHeight())
 
@@ -53,27 +55,26 @@ func (ms MediaServer) Process(file afero.File, filespec FileSpec) (io.Reader, er
 
 	switch filespec.Extension {
 	case ".gif":
-		spew.Dump("generating gif")
 		if err := gif.Encode(&buffer, img, nil); err != nil {
 			return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file"))
 		}
+
 	case ".jpg", ".jpeg":
-		spew.Dump("generating jpg")
 		if err := jpeg.Encode(&buffer, img, nil); err != nil {
 			return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file"))
 		}
+
 	case ".png":
-		spew.Dump("generating png")
 		if err := png.Encode(&buffer, img); err != nil {
 			return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file"))
 		}
+
 	case ".webp":
-		spew.Dump("generating webp")
 		if err := webp.Encode(&buffer, img, nil); err != nil {
 			return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file"))
 		}
+
 	}
 
-	spew.Dump("success!")
 	return &buffer, err
 }
