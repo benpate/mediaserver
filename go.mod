@@ -3,8 +3,8 @@ module github.com/benpate/mediaserver
 go 1.17
 
 require (
-	github.com/benpate/convert v0.9.2
-	github.com/benpate/derp v0.21.1
+	github.com/benpate/convert v0.11.0
+	github.com/benpate/derp v0.22.0
 	github.com/benpate/exiffix v0.1.0
 	github.com/benpate/list v0.4.1
 	github.com/chai2010/webp v1.1.0
