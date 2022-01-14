@@ -6,7 +6,7 @@ require (
 	github.com/benpate/convert v0.11.1
 	github.com/benpate/derp v0.22.2
 	github.com/benpate/exiffix v0.1.0
-	github.com/benpate/list v0.4.1
+	github.com/benpate/list v0.4.2
 	github.com/chai2010/webp v1.1.0
 	github.com/muesli/smartcrop v0.3.0
 	github.com/spf13/afero v1.6.0
