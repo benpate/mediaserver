@@ -1,8 +1,8 @@
-github.com/benpate/convert v0.9.2 h1:uc4WJTrFrF9nk4x5TxxKETv0R5H7sB0KrF6fPsutv94=
-github.com/benpate/convert v0.9.2/go.mod h1:hAck9D6nSY4irEXPGa0jljn/S1ThzfQCMXJ5JyDwaX0=
+github.com/benpate/convert v0.11.0 h1:62T8ez85ownbPb9x3ZCSQsxJLgDfMei28scscVEqWnE=
+github.com/benpate/convert v0.11.0/go.mod h1:FB986mt1s36qxVkU4hyVCkbTzeXai7PRhNCiFv77UAg=
 github.com/benpate/derp v0.20.1/go.mod h1:ENjMpkMmxn9gAulMAggElVcD2kNrsbjFhoZK8fUlCxY=
-github.com/benpate/derp v0.21.1 h1:F6si/XWNsUFK+BYpvXvzUmYjqggvDOy+mKBGuZ7VVSs=
-github.com/benpate/derp v0.21.1/go.mod h1:ENjMpkMmxn9gAulMAggElVcD2kNrsbjFhoZK8fUlCxY=
+github.com/benpate/derp v0.22.2 h1:qPcnT32VG8gqhDR4y+dhK2n/0TMvZ3RUP+HbENNogAc=
+github.com/benpate/derp v0.22.2/go.mod h1:ENjMpkMmxn9gAulMAggElVcD2kNrsbjFhoZK8fUlCxY=
 github.com/benpate/exiffix v0.1.0 h1:FuOHckriacy6vv8yhay8S/2lEJ0D9o2N48Bn5MrI9Yk=
 github.com/benpate/exiffix v0.1.0/go.mod h1:fVnmOVstYND82C0v7Ullz884kxmU1/BenB7l+zzQuZA=
 github.com/benpate/list v0.4.1 h1:slaO4GXQbS13ORStj2DxXQeOhqhhuenPBGJAqeiH3Ro=
