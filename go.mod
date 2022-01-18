@@ -1,4 +1,4 @@
-module github.com/benpate/mediaserver
+module github.com/whisperverse/mediaserver
 
 go 1.17
 
