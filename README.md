@@ -1,10 +1,10 @@
 # Media Server 🌇
 
-[![GoDoc](http://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](http://godoc.org/github.com/whisperverse/mediaserver)
-[![Build Status](http://img.shields.io/travis/whisperverse/mediaserver.svg?style=flat-square)](https://travis-ci.org/whisperverse/mediaserver)
+[![GoDoc](https://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](http://pkg.go.dev/github.com/whisperverse/mediaserver)
+[![Build Status](https://img.shields.io/github/workflow/status/whisperverse/mediaserver/Go/master)](https://github.com/whisperverse/mediaserver/actions/workflows/go.yml)
 [![Codecov](https://img.shields.io/codecov/c/github/whisperverse/mediaserver.svg?style=flat-square)](https://codecov.io/gh/whisperverse/mediaserver)
 [![Go Report Card](https://goreportcard.com/badge/github.com/whisperverse/mediaserver?style=flat-square)](https://goreportcard.com/report/github.com/whisperverse/mediaserver)
-![Version](https://img.shields.io/github/v/release/whisperverse/mediaserver?include_prereleases&style=flat-square&color=brightgreen)
+[![Version](https://img.shields.io/github/v/release/whisperverse/mediaserver?include_prereleases&style=flat-square&color=brightgreen)](https://github.com/whisperverse/mediaserver/releases)
 
 ## Image Resizing and Transcoding
 
