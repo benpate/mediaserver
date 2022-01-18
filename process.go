@@ -29,6 +29,11 @@ func (ms MediaServer) Process(file afero.File, filespec FileSpec) (io.Reader, er
 		return nil, derp.Wrap(err, "mediaserver.Resize", "Error decoding file using codec", file.Name(), codec)
 	}
 
+	// Absolutely NO processing of GIF files requested as GIF files
+	if (codec == "gif") && (filespec.Extension == "gif") {
+		return file, nil
+	}
+
 	if filespec.Resize() {
 
 		// TODO: Preserve aspect ratio when only width or height is provided.
@@ -55,6 +60,7 @@ func (ms MediaServer) Process(file afero.File, filespec FileSpec) (io.Reader, er
 
 	switch filespec.Extension {
 	case ".gif":
+
 		if err := gif.Encode(&buffer, img, nil); err != nil {
 			return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file"))
 		}
