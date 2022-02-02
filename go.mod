@@ -3,7 +3,7 @@ module github.com/whisperverse/mediaserver
 go 1.17
 
 require (
-	github.com/benpate/convert v0.11.1
+	github.com/benpate/convert v0.12.0
 	github.com/benpate/derp v0.22.2
 	github.com/benpate/exiffix v0.1.0
 	github.com/benpate/list v0.4.2
