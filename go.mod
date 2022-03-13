@@ -9,7 +9,7 @@ require (
 	github.com/benpate/list v0.4.2
 	github.com/chai2010/webp v1.1.1
 	github.com/muesli/smartcrop v0.3.0
-	github.com/spf13/afero v1.8.1
+	github.com/spf13/afero v1.8.2
 )
 
 require (
