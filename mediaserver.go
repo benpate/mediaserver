@@ -41,7 +41,7 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 	original, err := ms.original.Open(filespec.Filename)
 
 	if err != nil {
-		return derp.Report(derp.New(derp.CodeNotFoundError, "mediaserver.Get", "Cannot find original file", filespec, err))
+		return derp.Report(derp.NewNotFoundError("mediaserver.Get", "Cannot find original file", filespec, err))
 	}
 
 	defer original.Close()
