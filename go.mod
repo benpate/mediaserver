@@ -1,6 +1,6 @@
 module github.com/whisperverse/mediaserver
 
-go 1.17
+go 1.18
 
 require (
 	github.com/benpate/convert v0.12.0
