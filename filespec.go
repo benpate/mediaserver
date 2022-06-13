@@ -27,6 +27,8 @@ func NewFileSpec(file *url.URL, defaultType string) FileSpec {
 
 	if extension == "" {
 		extension = strings.ToLower(defaultType)
+	} else {
+		extension = "." + extension
 	}
 
 	mimeType := mime.TypeByExtension(extension)

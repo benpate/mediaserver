@@ -1,6 +1,7 @@
 package mediaserver
 
 import (
+	"image"
 	"io"
 	"net/url"
 
@@ -102,23 +103,38 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 }
 
 // Put adds a new file into the MediaServer.
-func (ms MediaServer) Put(filename string, file io.Reader) error {
+func (ms MediaServer) Put(filename string, file io.Reader) (int, int, error) {
 
 	// Open the destination (in afero)
 	destination, err := ms.original.Create(filename)
 
 	if err != nil {
-		return derp.Report(derp.Wrap(err, "mediaserver.Put", "Error creating media file in 'original' filesystem", filename))
+		return 0, 0, derp.Report(derp.Wrap(err, "mediaserver.Put", "Error creating media file in 'original' filesystem", filename))
 	}
 
 	defer destination.Close()
 
 	// Save the upload into the destination
 	if _, err = io.Copy(destination, file); err != nil {
-		return derp.Report(derp.Wrap(err, "mediaserver.Put", "Error writing media file in 'original' filesystem", filename))
+		return 0, 0, derp.Report(derp.Wrap(err, "mediaserver.Put", "Error writing media file in 'original' filesystem", filename))
 	}
 
-	return nil
+	// Get original measurements of the image
+	img, err := ms.original.Open(filename)
+
+	if err != nil {
+		return 0, 0, derp.Report(derp.Wrap(err, "mediaserver.Put", "Error re-opening file to read dimensions"))
+	}
+
+	defer img.Close()
+
+	im, _, err := image.DecodeConfig(img)
+
+	if err != nil {
+		return 0, 0, derp.Report(derp.Wrap(err, "mediaserver.Put", "Error decoding file dimensions"))
+	}
+
+	return im.Width, im.Height, nil
 }
 
 // Delete completely removes a file from the MediaServer along with any cached files.

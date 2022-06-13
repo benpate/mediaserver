@@ -36,8 +36,23 @@ func (ms MediaServer) Process(file afero.File, filespec FileSpec) (io.Reader, er
 
 	if filespec.Resize() {
 
-		// TODO: Preserve aspect ratio when only width or height is provided.
+		// Preserve aspect ratio when only width or height is provided.
+		if filespec.Height == 0 {
+			bounds := img.Bounds()
+			width := bounds.Max.X
+			height := bounds.Max.Y
 
+			filespec.Height = int(float64(filespec.Width) * float64(height) / float64(width))
+
+		} else if filespec.Width == 0 {
+			bounds := img.Bounds()
+			width := bounds.Max.X
+			height := bounds.Max.Y
+
+			filespec.Width = int(float64(filespec.Height) * float64(width) / float64(height))
+		}
+
+		// Find the best crop for the filespec
 		analyzer := smartcrop.NewAnalyzer(nfnt.NewDefaultResizer())
 		topCrop, err := analyzer.FindBestCrop(img, filespec.CacheWidth(), filespec.CacheHeight())
 
