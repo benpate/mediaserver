@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/benpate/convert"
-	"github.com/benpate/list"
+	"github.com/benpate/rosetta/convert"
+	"github.com/benpate/rosetta/list"
 )
 
 // FileSpec represents all the parameters available for requesting a file.

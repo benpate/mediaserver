@@ -95,6 +95,12 @@ func (ms MediaServer) Process(file afero.File, filespec FileSpec) (io.Reader, er
 			return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file"))
 		}
 
+		/*
+			case ".heic":
+				if err := heic.Encode(&buffer, img, nil); err != nil {
+					return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding HEIC file"))
+				}
+		*/
 	}
 
 	return &buffer, err
