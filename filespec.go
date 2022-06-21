@@ -22,13 +22,13 @@ type FileSpec struct {
 // NewFileSpec reads a URL and returns a fully populated FileSpec
 func NewFileSpec(file *url.URL, defaultType string) FileSpec {
 
-	fullname := list.Last(file.Path, "/")
-	filename, extension := list.SplitTail(fullname, ".")
+	fullname := list.Slash(file.Path).Last()
+	filename, extension := list.Dot(fullname).SplitTail()
 
 	if extension == "" {
 		extension = strings.ToLower(defaultType)
 	} else {
-		extension = "." + extension
+		extension = "." + strings.ToLower(extension)
 	}
 
 	mimeType := mime.TypeByExtension(extension)
@@ -37,7 +37,7 @@ func NewFileSpec(file *url.URL, defaultType string) FileSpec {
 	width := convert.Int(file.Query().Get("width"))
 
 	return FileSpec{
-		Filename:  filename,
+		Filename:  filename.String(),
 		Extension: extension,
 		Width:     width,
 		Height:    height,
@@ -47,7 +47,7 @@ func NewFileSpec(file *url.URL, defaultType string) FileSpec {
 
 // MimeCategory returns the first half of the mime type
 func (ms *FileSpec) MimeCategory() string {
-	return list.Head(ms.MimeType, "/")
+	return list.Slash(ms.MimeType).Head()
 }
 
 // CachePath returns the complete path (within the cache directory) to the file requested by this FileSpec
