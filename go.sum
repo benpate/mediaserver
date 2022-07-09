@@ -38,12 +38,12 @@ cloud.google.com/go/storage v1.14.0/go.mod h1:GrKmX003DSIwi9o29oFT7YDnHYwZoctc3f
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
-github.com/benpate/derp v0.23.0 h1:cfHgXZu0xXCgypvYdtHjQPPqrKEUPhsH0Ff48ke3Mf8=
-github.com/benpate/derp v0.23.0/go.mod h1:tTYfod3k1+5PcngPg8RgeOPvb/YsiQuBIEu4eFq4P+Q=
+github.com/benpate/derp v0.24.0 h1:tdTu2BVh9RyUj93WD0zvpSPMemxyZaE4+BBn1WWhQIk=
+github.com/benpate/derp v0.24.0/go.mod h1:o3eYoI47XkYklO0kGyvXyrUvLPqXSh68b1YIeTlYyqI=
 github.com/benpate/exiffix v0.1.0 h1:FuOHckriacy6vv8yhay8S/2lEJ0D9o2N48Bn5MrI9Yk=
 github.com/benpate/exiffix v0.1.0/go.mod h1:fVnmOVstYND82C0v7Ullz884kxmU1/BenB7l+zzQuZA=
-github.com/benpate/rosetta v0.3.0 h1:Vxc2mZm6ZHO3jylOz+Jl1GdjGgBoPRWUSgEBrmpmeMc=
-github.com/benpate/rosetta v0.3.0/go.mod h1:Pj8wx0ZMot2tVpIJHqMimgM2hjtMKjKt4hMkmWJvkis=
+github.com/benpate/rosetta v0.5.0 h1:21xp7EblZFYgP+t0MN9EHdDXF4gCXL4U13t3SGrdRLU=
+github.com/benpate/rosetta v0.5.0/go.mod h1:1U7S2fnLsb295qCYa9iLK0Xc6PhCF1s5HUMEuVuAR0o=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/chai2010/webp v1.1.1 h1:jTRmEccAJ4MGrhFOrPMpNGIJ/eybIgwKpcACsrTEapk=
 github.com/chai2010/webp v1.1.1/go.mod h1:0XVwvZWdjjdxpUEIf7b9g9VkHFnInUSYujwqTLEuldU=
