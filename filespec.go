@@ -47,7 +47,7 @@ func NewFileSpec(file *url.URL, defaultType string) FileSpec {
 
 // MimeCategory returns the first half of the mime type
 func (ms *FileSpec) MimeCategory() string {
-	return list.Slash(ms.MimeType).Head()
+	return list.Slash(ms.MimeType).First()
 }
 
 // CachePath returns the complete path (within the cache directory) to the file requested by this FileSpec
