@@ -19,7 +19,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd // indirect
-	golang.org/x/image v0.3.0 // indirect
-	golang.org/x/text v0.6.0 // indirect
+	golang.org/x/image v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
