@@ -25,8 +25,9 @@ func (ms MediaServer) Process(file afero.File, filespec FileSpec) (io.Reader, er
 
 	img, codec, err := exiffix.Decode(file)
 
+	// IF we don't have a known image type, then just return the file rawdog
 	if err != nil {
-		return nil, derp.Wrap(err, "mediaserver.Resize", "Error decoding file using codec", file.Name(), codec)
+		return file, nil
 	}
 
 	// Absolutely NO processing of GIF files requested as GIF files

@@ -127,7 +127,7 @@ func (ms MediaServer) Put(filename string, file io.Reader) (int, int, error) {
 	im, _, err := image.DecodeConfig(&buffer)
 
 	if err != nil {
-		return 0, 0, derp.Report(derp.Wrap(err, "mediaserver.Put", "Error decoding file dimensions", filename))
+		return 0, 0, nil
 	}
 
 	return im.Width, im.Height, nil
