@@ -3,9 +3,9 @@ module github.com/benpate/mediaserver
 go 1.18
 
 require (
-	github.com/benpate/derp v0.27.2
+	github.com/benpate/derp v0.28.0
 	github.com/benpate/exiffix v0.1.0
-	github.com/benpate/rosetta v0.17.0
+	github.com/benpate/rosetta v0.18.0
 	github.com/chai2010/webp v1.1.1
 	github.com/muesli/smartcrop v0.3.0
 	github.com/spf13/afero v1.9.5
