@@ -33,7 +33,7 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 		defer cached.Close()
 
 		if _, err := io.Copy(destination, cached); err != nil {
-			return derp.Report(derp.Wrap(err, "mediaserver.Get", "Error copying cached file to destination", filespec))
+			return derp.Wrap(err, "mediaserver.Get", "Error copying cached file to destination", filespec)
 		}
 
 		return nil
@@ -43,7 +43,7 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 	original, err := ms.original.Open(filespec.Filename)
 
 	if err != nil {
-		return derp.Report(derp.NewNotFoundError("mediaserver.Get", "Cannot find original file", filespec, err))
+		return derp.NewNotFoundError("mediaserver.Get", "Cannot find original file", filespec, err)
 	}
 
 	defer original.Close()
@@ -52,19 +52,19 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 	processedImage, err := ms.Process(original, filespec)
 
 	if err != nil {
-		return derp.Report(derp.Wrap(err, "mediaserver.Get", "Error processing original file", filespec))
+		return derp.Wrap(err, "mediaserver.Get", "Error processing original file", filespec)
 	}
 
 	// Guarantee that a cache folder exists for this file
 	exists, err := afero.DirExists(ms.cache, filespec.CacheDir())
 
 	if err != nil {
-		return derp.Report(derp.Wrap(err, "mediaserver.Get", "Error locating directory for cached file", filespec))
+		return derp.Wrap(err, "mediaserver.Get", "Error locating directory for cached file", filespec)
 	}
 
 	if !exists {
 		if err := ms.cache.Mkdir(filespec.CacheDir(), 0777); err != nil {
-			return derp.Report(derp.Wrap(err, "mediaserver.Get", "Error creating directory for cached file", filespec))
+			return derp.Wrap(err, "mediaserver.Get", "Error creating directory for cached file", filespec)
 		}
 	}
 
@@ -72,14 +72,14 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 	cacheWriter, err := ms.cache.Create(filespec.CachePath())
 
 	if err != nil {
-		return derp.Report(derp.Wrap(err, "mediaserver.Get", "Error creating file in mediaserver cache", filespec))
+		return derp.Wrap(err, "mediaserver.Get", "Error creating file in mediaserver cache", filespec)
 	}
 
 	defer cacheWriter.Close()
 
 	// Write the processed file into the cache (and copy to destination at the same time)
 	if _, err := io.Copy(cacheWriter, processedImage); err != nil {
-		return derp.Report(derp.Wrap(err, "mediaserver.Get", "Error writing processed file to cache", filespec))
+		return derp.Wrap(err, "mediaserver.Get", "Error writing processed file to cache", filespec)
 	}
 
 	// Close writer here so that we can re-read the file.
@@ -89,14 +89,14 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 	cacheReader, err := ms.cache.Open(filespec.CachePath())
 
 	if err != nil {
-		return derp.Report(derp.Wrap(err, "mediaserver.Get", "Error just-generated file", filespec))
+		return derp.Wrap(err, "mediaserver.Get", "Error just-generated file", filespec)
 	}
 
 	defer cacheReader.Close()
 
 	// Write the just-cached file to the destination.
 	if _, err := io.Copy(destination, cacheReader); err != nil {
-		return derp.Report(derp.Wrap(err, "mediaserver.Get", "Error copying cached file to destination", filespec))
+		return derp.Wrap(err, "mediaserver.Get", "Error copying cached file to destination", filespec)
 	}
 
 	// Success!!?!
@@ -113,14 +113,14 @@ func (ms MediaServer) Put(filename string, file io.Reader) (int, int, error) {
 	destination, err := ms.original.Create(filename)
 
 	if err != nil {
-		return 0, 0, derp.Report(derp.Wrap(err, "mediaserver.Put", "Error creating media file in 'original' filesystem", filename))
+		return 0, 0, derp.Wrap(err, "mediaserver.Put", "Error creating media file in 'original' filesystem", filename)
 	}
 
 	defer destination.Close()
 
 	// Save the upload into the destination
 	if _, err = io.Copy(destination, tee); err != nil {
-		return 0, 0, derp.Report(derp.Wrap(err, "mediaserver.Put", "Error writing media file in 'original' filesystem", filename))
+		return 0, 0, derp.Wrap(err, "mediaserver.Put", "Error writing media file in 'original' filesystem", filename)
 	}
 
 	// Re-read the buffer to get the dimensions of the image
@@ -137,11 +137,11 @@ func (ms MediaServer) Put(filename string, file io.Reader) (int, int, error) {
 func (ms MediaServer) Delete(filename string) error {
 
 	if err := ms.original.Remove(filename); err != nil {
-		return derp.Report(derp.Wrap(err, "mediaserver.Delete", "Error removing media file in 'original' filesystem", filename))
+		return derp.Wrap(err, "mediaserver.Delete", "Error removing media file in 'original' filesystem", filename)
 	}
 
 	if err := ms.cache.RemoveAll(filename); err != nil {
-		return derp.Report(derp.Wrap(err, "mediaserver.Delete", "Error removing media files in 'cache' filesystem", filename))
+		return derp.Wrap(err, "mediaserver.Delete", "Error removing media files in 'cache' filesystem", filename)
 	}
 
 	return nil

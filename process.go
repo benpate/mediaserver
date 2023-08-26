@@ -78,28 +78,28 @@ func (ms MediaServer) Process(file afero.File, filespec FileSpec) (io.Reader, er
 	case ".gif":
 
 		if err := gif.Encode(&buffer, img, nil); err != nil {
-			return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file"))
+			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
 		}
 
 	case ".jpg", ".jpeg":
 		if err := jpeg.Encode(&buffer, img, nil); err != nil {
-			return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file"))
+			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
 		}
 
 	case ".png":
 		if err := png.Encode(&buffer, img); err != nil {
-			return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file"))
+			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
 		}
 
 	case ".webp":
 		if err := webp.Encode(&buffer, img, nil); err != nil {
-			return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file"))
+			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
 		}
 
 		/*
 			case ".heic":
 				if err := heic.Encode(&buffer, img, nil); err != nil {
-					return nil, derp.Report(derp.Wrap(err, "mediaserver.Resize", "Error encoding HEIC file"))
+					return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding HEIC file")
 				}
 		*/
 	}
