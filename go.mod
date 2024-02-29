@@ -5,9 +5,9 @@ go 1.21
 toolchain go1.21.6
 
 require (
-	github.com/benpate/derp v0.30.0
+	github.com/benpate/derp v0.31.0
 	github.com/benpate/exiffix v0.1.0
-	github.com/benpate/rosetta v0.19.4
+	github.com/benpate/rosetta v0.20.0
 	github.com/chai2010/webp v1.1.1
 	github.com/muesli/smartcrop v0.3.0
 	github.com/spf13/afero v1.11.0
