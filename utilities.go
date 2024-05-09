@@ -11,3 +11,16 @@ func round100(number int) int {
 
 	return result * 100
 }
+
+func first[T comparable](values ...T) T {
+
+	var zero T
+
+	for _, value := range values {
+		if value != zero {
+			return value
+		}
+	}
+
+	return zero
+}

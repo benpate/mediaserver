@@ -7,6 +7,7 @@ import (
 
 	"github.com/benpate/rosetta/convert"
 	"github.com/benpate/rosetta/list"
+	"github.com/rs/zerolog/log"
 )
 
 // FileSpec represents all the parameters available for requesting a file.
@@ -81,6 +82,14 @@ func (ms *FileSpec) CacheFilename() string {
 	return buffer.String()
 }
 
+func (ms *FileSpec) AspectRatio() float64 {
+	if (ms.Width == 0) || (ms.Height == 0) {
+		return 0
+	}
+
+	return float64(ms.Width) / float64(ms.Height)
+}
+
 // Resize returns TRUE if the FileSpec is requesting that the file be resized.
 func (ms *FileSpec) Resize() bool {
 	return (ms.Width > 0) || (ms.Height > 0)
@@ -94,4 +103,60 @@ func (ms *FileSpec) CacheWidth() int {
 // CacheHeight returns the height of the file to save in the cache
 func (ms *FileSpec) CacheHeight() int {
 	return round100(ms.Height)
+}
+
+func (ms *FileSpec) ffmpegArguments() []string {
+
+	// Build the command line arguments
+	result := make([]string, 0)
+
+	switch ms.MimeCategory() {
+
+	case "image":
+
+		// Determine new image dimensions
+		width := convert.String(first(ms.CacheWidth(), -1))
+		height := convert.String(first(ms.CacheHeight(), -1))
+		filters := make([]string, 0)
+
+		if ms.Resize() {
+
+			if ms.Width == ms.Height {
+				filters = append(filters, "crop='min(iw,ih)':'min(iw,ih)'")
+			}
+
+			filters = append(filters, "scale='min("+width+",iw)':'min("+height+",ih)'")
+		}
+
+		if len(filters) > 0 {
+			result = append(result, "-vf", strings.Join(filters, ", "))
+		}
+		result = append(result, "-f", ms.Extension[1:])
+
+	case "audio":
+
+		switch ms.Extension {
+
+		case ".flac":
+			result = append(result, "-c:a", "flac")
+			result = append(result, "-f", "flac")
+
+		case ".m4a", ".aac":
+			result = append(result, "-c:a", "aac")
+			result = append(result, "-movflags", "+faststart")
+			result = append(result, "-f", "adts")
+
+		default:
+			ms.Extension = ".mp3"
+			result = append(result, "-c:a", "libmp3lame")
+			result = append(result, "-f", "mp3")
+		}
+
+	case "video":
+
+	}
+
+	log.Debug().Msg("FFMPEG Arguments: " + strings.Join(result, " "))
+
+	return result
 }

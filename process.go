@@ -2,18 +2,10 @@ package mediaserver
 
 import (
 	"bytes"
-	"image"
-	"image/gif"
-	"image/jpeg"
-	"image/png"
 	"io"
-
-	"github.com/chai2010/webp"
+	"os/exec"
 
 	"github.com/benpate/derp"
-	"github.com/benpate/exiffix"
-	"github.com/muesli/smartcrop"
-	"github.com/muesli/smartcrop/nfnt"
 	"github.com/spf13/afero"
 )
 
@@ -22,6 +14,46 @@ import (
 
 // Process decodes an image file and applies all of the processing steps requested in the FileSpec
 func (ms MediaServer) Process(file afero.File, filespec FileSpec) (io.Reader, error) {
+
+	const location = "mediaserver.ProcessWithFFmpeg"
+
+	// If FFmpeg is not installed, then just return the file as-is...
+	// TODO: perhaps we should change the FileSpec to indicate this?
+	if !isFFmpegInstalled {
+		return file, nil
+	}
+
+	var buffer bytes.Buffer
+	var errors bytes.Buffer
+
+	// Determine ffmpeg operations based on the filespec
+	args := []string{"-i", "pipe:0"}
+	args = append(args, filespec.ffmpegArguments()...)
+	args = append(args, "pipe:1")
+
+	// Pipe the original to ffmpeg
+	ffmpeg := exec.Command("ffmpeg", args...)
+	ffmpeg.Stdin = file
+	ffmpeg.Stdout = &buffer
+	ffmpeg.Stderr = &errors
+
+	// Execute ffmpeg
+	if err := ffmpeg.Run(); err != nil {
+		return nil, derp.Wrap(err, location, "Error running ffmpeg", errors.String(), args)
+	}
+
+	return &buffer, nil
+}
+
+/*
+// Process decodes an image file and applies all of the processing steps requested in the FileSpec
+func (ms MediaServer) Process(file afero.File, filespec FileSpec) (io.Reader, error) {
+
+	if isFFmpegInstalled {
+		return ms.ProcessWithFFmpeg(file, filespec)
+	}
+
+	log.Debug().Msg("Processing file with build-in libraries")
 
 	img, codec, err := exiffix.Decode(file)
 
@@ -95,14 +127,8 @@ func (ms MediaServer) Process(file afero.File, filespec FileSpec) (io.Reader, er
 		if err := webp.Encode(&buffer, img, nil); err != nil {
 			return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding JPEG file")
 		}
-
-		/*
-			case ".heic":
-				if err := heic.Encode(&buffer, img, nil); err != nil {
-					return nil, derp.Wrap(err, "mediaserver.Resize", "Error encoding HEIC file")
-				}
-		*/
 	}
 
 	return &buffer, err
 }
+*/
