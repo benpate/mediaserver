@@ -131,7 +131,27 @@ func (ms *FileSpec) ffmpegArguments() []string {
 		if len(filters) > 0 {
 			result = append(result, "-vf", strings.Join(filters, ", "))
 		}
-		result = append(result, "-f", ms.Extension[1:])
+
+		switch ms.Extension {
+		case ".png":
+			result = append(result, "-c:v", "png")
+			result = append(result, "-f", "png")
+
+		case ".gif":
+			result = append(result, "-c:v", "gif")
+			result = append(result, "-f", "gif")
+
+		case ".jpg", ".jpeg":
+			result = append(result, "-c:v", "jpg")
+			result = append(result, "-f", "jpg")
+
+		case ".webp":
+			result = append(result, "-c:v", "webp")
+			result = append(result, "-f", "webp")
+
+		default:
+			result = append(result, "-f", ms.Extension[1:])
+		}
 
 	case "audio":
 
