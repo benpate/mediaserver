@@ -5,6 +5,7 @@ import (
 	"image"
 	"io"
 	"net/url"
+	"time"
 
 	"github.com/benpate/derp"
 	"github.com/rs/zerolog/log"
@@ -43,8 +44,15 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 		return nil
 	}
 
-	// Try to locate the original file
-	original, err := ms.original.Open(filespec.Filename)
+	// Try to locate the original file (retry 3 times with exponential backoff)
+	var original afero.File
+	var err error
+	for retry := 0; retry < 4; retry++ {
+		original, err = ms.original.Open(filespec.Filename)
+		if err != nil {
+			time.Sleep(time.Duration(2^retry) * time.Second)
+		}
+	}
 
 	if err != nil {
 		return derp.ReportAndReturn(derp.NewNotFoundError("mediaserver.Get", "Cannot find original file", filespec, err))
@@ -113,22 +121,32 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 // Put adds a new file into the MediaServer.
 func (ms MediaServer) Put(filename string, file io.Reader) (int, int, error) {
 
+	const location = "mediaserver.Put"
+
 	var buffer bytes.Buffer
-	tee := io.TeeReader(file, &buffer)
 
-	// Open the destination (in afero)
-	destination, err := ms.original.Create(filename)
-
-	if err != nil {
-		return 0, 0, derp.Wrap(err, "mediaserver.Put", "Error creating media file in 'original' filesystem", filename)
+	if _, err := io.Copy(&buffer, file); err != nil {
+		return 0, 0, derp.Wrap(err, location, "Error reading media file", filename)
 	}
 
-	defer destination.Close()
+	go func(buffer []byte) {
 
-	// Save the upload into the destination
-	if _, err = io.Copy(destination, tee); err != nil {
-		return 0, 0, derp.Wrap(err, "mediaserver.Put", "Error writing media file in 'original' filesystem", filename)
-	}
+		// Open the destination (in afero)
+		destination, err := ms.original.Create(filename)
+
+		if err != nil {
+			derp.Report(derp.Wrap(err, location, "Error creating media file in 'original' filesystem", filename))
+			return
+		}
+
+		defer destination.Close()
+
+		// Save the upload into the destination
+		if _, err = io.Copy(destination, bytes.NewReader(buffer)); err != nil {
+			derp.Report(derp.Wrap(err, location, "Error writing media file in 'original' filesystem", filename))
+			return
+		}
+	}(buffer.Bytes())
 
 	// Re-read the buffer to get the dimensions of the image
 	im, _, err := image.DecodeConfig(&buffer)
