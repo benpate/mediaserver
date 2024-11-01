@@ -31,17 +31,19 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 
 	log.Trace().Str("filename", filespec.Filename).Msg("mediaserver.Get")
 
-	// If the file exists in the cache, then we're in luck :)
-	if cached, err := ms.cache.Open(filespec.CachePath()); err == nil {
-		log.Trace().Msg("mediaserver.Get - Found cached file")
+	if filespec.UseCache() {
+		// If the file exists in the cache, then we're in luck :)
+		if cached, err := ms.cache.Open(filespec.CachePath()); err == nil {
+			log.Trace().Msg("mediaserver.Get - Found cached file")
 
-		defer cached.Close()
+			defer cached.Close()
 
-		if _, err := io.Copy(destination, cached); err != nil {
-			return derp.ReportAndReturn(derp.Wrap(err, "mediaserver.Get", "Error copying cached file to destination", filespec))
+			if _, err := io.Copy(destination, cached); err != nil {
+				return derp.ReportAndReturn(derp.Wrap(err, "mediaserver.Get", "Error copying cached file to destination", filespec))
+			}
+
+			return nil
 		}
-
-		return nil
 	}
 
 	// Try to locate the original file (retry 3 times with exponential backoff)
@@ -65,6 +67,14 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 
 	if err != nil {
 		return derp.ReportAndReturn(derp.Wrap(err, "mediaserver.Get", "Error processing original file", filespec))
+	}
+
+	// If we're not using the cache, then just write the processed file to the destination
+	if !filespec.UseCache() {
+		if _, err := io.Copy(destination, processedImage); err != nil {
+			return derp.ReportAndReturn(derp.Wrap(err, "mediaserver.Get", "Error copying processed file to destination", filespec))
+		}
+		return nil
 	}
 
 	// Guarantee that a cache folder exists for this file

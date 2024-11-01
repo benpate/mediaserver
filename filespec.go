@@ -14,10 +14,12 @@ import (
 // This can be generated directly from a URL.
 type FileSpec struct {
 	Filename  string
-	Extension string
-	Width     int
-	Height    int
-	MimeType  string
+	Extension string            // Set via file extension
+	Width     int               // Set via ?width=1920 querystring
+	Height    int               // Set via ?height=1080 querystring
+	Bitrate   int               // Set via ?bitrate=320 querystring
+	MimeType  string            // Calculated from file extension
+	Metadata  map[string]string // Cannot be set via querystring
 }
 
 // NewFileSpec reads a URL and returns a fully populated FileSpec
@@ -36,19 +38,27 @@ func NewFileSpec(file *url.URL, defaultType string) FileSpec {
 
 	height := convert.Int(file.Query().Get("height"))
 	width := convert.Int(file.Query().Get("width"))
+	bitrate := convert.Int(file.Query().Get("bitrate"))
 
 	return FileSpec{
 		Filename:  filename.String(),
 		Extension: extension,
 		Width:     width,
 		Height:    height,
+		Bitrate:   bitrate,
 		MimeType:  mimeType,
+		Metadata:  make(map[string]string),
 	}
 }
 
 // MimeCategory returns the first half of the mime type
 func (ms *FileSpec) MimeCategory() string {
 	return list.Slash(ms.MimeType).First()
+}
+
+// UseCache returns TRUE if this FileSpec should be retrieved from the cache
+func (ms *FileSpec) UseCache() bool {
+	return len(ms.Metadata) == 0
 }
 
 // CachePath returns the complete path (within the cache directory) to the file requested by this FileSpec
@@ -68,12 +78,19 @@ func (ms *FileSpec) CacheFilename() string {
 
 	buffer.WriteString("cached")
 
-	if ms.MimeCategory() == "image" {
+	switch ms.MimeCategory() {
+
+	case "image":
 		if ms.Width != 0 {
 			buffer.WriteString("_w" + convert.String(ms.Width))
 		}
 		if ms.Height != 0 {
 			buffer.WriteString("_h" + convert.String(ms.Height))
+		}
+
+	case "audio":
+		if ms.Bitrate != 0 {
+			buffer.WriteString("_b" + convert.String(ms.Bitrate))
 		}
 	}
 
@@ -155,22 +172,36 @@ func (ms *FileSpec) ffmpegArguments() []string {
 
 	case "audio":
 
+		var outputFormat string
 		switch ms.Extension {
 
 		case ".flac":
+			outputFormat = "flac"
 			result = append(result, "-c:a", "flac")
-			result = append(result, "-f", "flac")
 
 		case ".m4a", ".aac":
+			outputFormat = "adts"
 			result = append(result, "-c:a", "aac")
 			result = append(result, "-movflags", "+faststart")
-			result = append(result, "-f", "adts")
 
 		default:
 			ms.Extension = ".mp3"
+			outputFormat = "mp3"
 			result = append(result, "-c:a", "libmp3lame")
-			result = append(result, "-f", "mp3")
+			result = append(result, "-write_id3v1", "true") // write v1 tags
 		}
+
+		if ms.Bitrate > 0 {
+			result = append(result, "-b:a", convert.String(ms.Bitrate)+"k")
+		}
+
+		for key, value := range ms.Metadata {
+			value = strings.ReplaceAll(value, `"`, ``)
+			value = strings.ReplaceAll(value, "\n", `\n`)
+			result = append(result, "-metadata", `"`+key+`=`+value+`"`)
+		}
+
+		result = append(result, "-f", outputFormat)
 
 	case "video":
 
