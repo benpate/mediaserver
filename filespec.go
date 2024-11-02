@@ -189,6 +189,7 @@ func (ms *FileSpec) ffmpegArguments() []string {
 			outputFormat = "mp3"
 			result = append(result, "-c:a", "libmp3lame")
 			result = append(result, "-write_id3v1", "true") // write v1 tags
+			result = append(result, "-id3v2_version", "3")  // write v2.3 tags
 		}
 
 		if ms.Bitrate > 0 {
