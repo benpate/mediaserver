@@ -199,7 +199,7 @@ func (ms *FileSpec) ffmpegArguments() []string {
 		for key, value := range ms.Metadata {
 			value = strings.ReplaceAll(value, `"`, ``)
 			value = strings.ReplaceAll(value, "\n", `\n`)
-			result = append(result, "-metadata", `"`+key+`=`+value+`"`)
+			result = append(result, "-metadata", key+"="+value)
 		}
 
 		result = append(result, "-f", outputFormat)
