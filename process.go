@@ -39,7 +39,7 @@ func (ms MediaServer) Process(file afero.File, filespec FileSpec) (io.Reader, er
 
 	// Execute ffmpeg
 	if err := ffmpeg.Run(); err != nil {
-		return nil, derp.Wrap(err, location, "Error running ffmpeg", errors.String(), args)
+		return nil, derp.Wrap(err, location, "Error running FFmpeg", errors.String(), args)
 	}
 
 	return &buffer, nil
