@@ -14,12 +14,11 @@ import (
 // This can be generated directly from a URL.
 type FileSpec struct {
 	Filename  string
-	Extension string            // Set via file extension
-	Width     int               // Set via ?width=1920 querystring
-	Height    int               // Set via ?height=1080 querystring
-	Bitrate   int               // Set via ?bitrate=320 querystring
-	MimeType  string            // Calculated from file extension
-	Metadata  map[string]string // Cannot be set via querystring
+	Extension string // Set via file extension
+	Width     int    // Set via ?width=1920 querystring
+	Height    int    // Set via ?height=1080 querystring
+	Bitrate   int    // Set via ?bitrate=320 querystring
+	MimeType  string // Calculated from file extension
 }
 
 // NewFileSpec reads a URL and returns a fully populated FileSpec
@@ -47,18 +46,12 @@ func NewFileSpec(file *url.URL, defaultType string) FileSpec {
 		Height:    height,
 		Bitrate:   bitrate,
 		MimeType:  mimeType,
-		Metadata:  make(map[string]string),
 	}
 }
 
 // MimeCategory returns the first half of the mime type
 func (ms *FileSpec) MimeCategory() string {
 	return list.Slash(ms.MimeType).First()
-}
-
-// UseCache returns TRUE if this FileSpec should be retrieved from the cache
-func (ms *FileSpec) UseCache() bool {
-	return len(ms.Metadata) == 0
 }
 
 // CachePath returns the complete path (within the cache directory) to the file requested by this FileSpec
@@ -185,18 +178,10 @@ func (ms *FileSpec) ffmpegArguments() []string {
 			ms.Extension = ".mp3"
 			outputFormat = "mp3"
 			result = append(result, "-c:a", "libmp3lame")
-			result = append(result, "-write_id3v1", "true") // write v1 tags
-			result = append(result, "-id3v2_version", "3")  // write v2.3 tags
 		}
 
 		if ms.Bitrate > 0 {
 			result = append(result, "-b:a", convert.String(ms.Bitrate)+"k")
-		}
-
-		for key, value := range ms.Metadata {
-			value = strings.ReplaceAll(value, `"`, ``)
-			value = strings.ReplaceAll(value, "\n", `\n`)
-			result = append(result, "-metadata", key+"="+value)
 		}
 
 		result = append(result, "-f", outputFormat)
