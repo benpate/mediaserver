@@ -150,29 +150,26 @@ func (ms *FileSpec) ffmpegArguments() []string {
 		}
 
 		switch ms.Extension {
+
 		case ".png":
 			result = append(result, "-c:v", "png")
-			result = append(result, "-f", "png")
 
 		case ".gif":
 			result = append(result, "-c:v", "gif")
-			result = append(result, "-f", "gif")
 
 		case ".jpg", ".jpeg":
-			result = append(result, "-c:v", "jpg")
-			result = append(result, "-f", "jpg")
+			result = append(result, "-c:v", "mjpeg")
 
 		case ".webp":
 			result = append(result, "-c:v", "webp")
-			result = append(result, "-f", "webp")
-
-		default:
-			result = append(result, "-f", ms.Extension[1:])
 		}
+
+		result = append(result, "-f", "image2pipe")
 
 	case "audio":
 
 		var outputFormat string
+
 		switch ms.Extension {
 
 		case ".flac":
