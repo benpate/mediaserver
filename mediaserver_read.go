@@ -69,17 +69,28 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 
 	defer cachedFile.Close()
 
-	// Prepare to write the ZIP file to *both* the cache AND the response. Woot woot.
-	multiWriter := io.MultiWriter(cachedFile, destination)
-
-	if err := ms.Process(original, filespec, multiWriter); err != nil {
+	// Process the file into the cache.  Write it fully, before returning it to the caller.
+	if err := ms.Process(original, filespec, cachedFile); err != nil {
+		cachedFile.Close()
 		return derp.ReportAndReturn(derp.Wrap(err, location, "Error processing original file", filespec))
+	}
+
+	cachedFile.Close()
+
+	log.Trace().
+		Str("location", location).
+		Str("filename", filespec.Filename).
+		Msg("Created new cached file...")
+
+	// Re-read the file from the cache
+	if err := ms.getFromCache(filespec.CachePath(), destination); err != nil {
+		return derp.Wrap(err, location, "Error reading cached file", filespec)
 	}
 
 	log.Trace().
 		Str("location", location).
 		Str("filename", filespec.Filename).
-		Msg("Created new cached file and returned to request.")
+		Msg("Cached file returned to caller.")
 
 	// Great success.
 	return nil
