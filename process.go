@@ -13,17 +13,16 @@ import (
 // github.com/jdeng/goheif
 
 // Process decodes an image file and applies all of the processing steps requested in the FileSpec
-func (ms MediaServer) Process(file afero.File, filespec FileSpec) (io.Reader, error) {
+func (ms MediaServer) Process(file afero.File, filespec FileSpec, output io.Writer) error {
 
 	const location = "mediaserver.ProcessWithFFmpeg"
 
 	// If FFmpeg is not installed, then just return the file as-is...
 	// TODO: perhaps we should change the FileSpec to indicate this?
 	if !isFFmpegInstalled {
-		return file, nil
+		return derp.NewInternalError(location, "FFmpeg is not installed on this server")
 	}
 
-	var buffer bytes.Buffer
 	var errors bytes.Buffer
 
 	// Determine ffmpeg operations based on the filespec
@@ -34,13 +33,13 @@ func (ms MediaServer) Process(file afero.File, filespec FileSpec) (io.Reader, er
 	// Pipe the original to ffmpeg
 	ffmpeg := exec.Command("ffmpeg", args...)
 	ffmpeg.Stdin = file
-	ffmpeg.Stdout = &buffer
+	ffmpeg.Stdout = output
 	ffmpeg.Stderr = &errors
 
 	// Execute ffmpeg
 	if err := ffmpeg.Run(); err != nil {
-		return nil, derp.Wrap(err, location, "Error running FFmpeg", errors.String(), args)
+		return derp.Wrap(err, location, "Error running FFmpeg", errors.String(), args)
 	}
 
-	return &buffer, nil
+	return nil
 }
