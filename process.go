@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/afero"
 )
 
+// Now using homebrew-ffmpeg on MacOS: https://github.com/homebrew-ffmpeg/homebrew-ffmpeg
+
 // cs.opensource.google/go/x/image/webp
 // github.com/jdeng/goheif
 
