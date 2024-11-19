@@ -169,9 +169,14 @@ func (ms *FileSpec) ffmpegArguments() []string {
 			outputFormat = "flac"
 			result = append(result, "-c:a", "flac")
 
-		case ".m4a", ".aac":
+		case ".m4a":
+			outputFormat = "m4a"
+			result = append(result, "-c:a", "libfdk_aac")
+			result = append(result, "-movflags", "+faststart")
+
+		case ".aac":
 			outputFormat = "adts"
-			result = append(result, "-c:a", "aac")
+			result = append(result, "-c:a", "libfdk_aac")
 			result = append(result, "-movflags", "+faststart")
 
 		default:
