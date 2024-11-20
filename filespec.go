@@ -188,38 +188,38 @@ func (ms *FileSpec) ffmpegArguments() []string {
 			result = append(result, "-f", "mp3")
 		}
 
-		// https://trac.ffmpeg.org/wiki/Encode/MP3
-		switch {
-		case ms.Bitrate == 0:
-		case ms.Bitrate < 85:
-			result = append(result, "-q:a", "9")
-		case ms.Bitrate < 105:
-			result = append(result, "-q:a", "8")
-		case ms.Bitrate < 120:
-			result = append(result, "-q:a", "7")
-		case ms.Bitrate < 130:
-			result = append(result, "-q:a", "6")
-		case ms.Bitrate < 150:
-			result = append(result, "-q:a", "5")
-		case ms.Bitrate < 185:
-			result = append(result, "-q:a", "4")
-		case ms.Bitrate < 195:
-			result = append(result, "-q:a", "3")
-		case ms.Bitrate < 210:
-			result = append(result, "-q:a", "2")
-		case ms.Bitrate < 250:
-			result = append(result, "-q:a", "1")
-		case ms.Bitrate < 320:
-			result = append(result, "-q:a", "0")
-		default:
-			result = append(result, "-b:a", "320k")
-		}
-
 		/*
-			if ms.Bitrate > 0 {
-				result = append(result, "-b:a", convert.String(ms.Bitrate)+"k")
+			// https://trac.ffmpeg.org/wiki/Encode/MP3
+			switch {
+			case ms.Bitrate == 0:
+			case ms.Bitrate < 85:
+				result = append(result, "-q:a", "9")
+			case ms.Bitrate < 105:
+				result = append(result, "-q:a", "8")
+			case ms.Bitrate < 120:
+				result = append(result, "-q:a", "7")
+			case ms.Bitrate < 130:
+				result = append(result, "-q:a", "6")
+			case ms.Bitrate < 150:
+				result = append(result, "-q:a", "5")
+			case ms.Bitrate < 185:
+				result = append(result, "-q:a", "4")
+			case ms.Bitrate < 195:
+				result = append(result, "-q:a", "3")
+			case ms.Bitrate < 210:
+				result = append(result, "-q:a", "2")
+			case ms.Bitrate < 250:
+				result = append(result, "-q:a", "1")
+			case ms.Bitrate < 320:
+				result = append(result, "-q:a", "0")
+			default:
+				result = append(result, "-b:a", "320k")
 			}
 		*/
+
+		if ms.Bitrate > 0 {
+			result = append(result, "-b:a", convert.String(ms.Bitrate)+"k")
+		}
 
 	case "video":
 
