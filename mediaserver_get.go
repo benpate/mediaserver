@@ -5,10 +5,12 @@ import (
 
 	"github.com/benpate/derp"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/afero"
 )
 
 // Get locates the file, processes it if necessary, and returns it to the caller.
+// If the filespec.Cache is set to FALSE, then file will be processed and returned.
+// If the filespec.Cache is set to TRUE, then the processed file will retrieved
+// from the cache (if possible) and the processed file will be stored in the cache.
 func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 
 	const location = "mediaserver.Get"
@@ -99,32 +101,5 @@ func (ms MediaServer) getFromCache(path string, destination io.Writer) error {
 	}
 
 	// Smashing!!
-	return nil
-}
-
-// guaranteeFolderExists creates a folder in the afero Filesystem if it does not already exist
-func guaranteeFolderExists(fs afero.Fs, path string) error {
-
-	const location = "mediaserver.guaranteeFolderExists"
-
-	// Guarantee that a cache folder exists for this file
-	folderExists, err := afero.DirExists(fs, path)
-
-	if err != nil {
-		return derp.Wrap(err, location, "Error locating directory for cached file", path)
-	}
-
-	if !folderExists {
-
-		log.Trace().
-			Str("location", location).
-			Str("path", path).
-			Msg("Cached folder does not exist. Creating cache folder...")
-
-		if err := fs.Mkdir(path, 0777); err != nil {
-			return derp.Wrap(err, location, "Error creating directory for cached file", path)
-		}
-	}
-
 	return nil
 }

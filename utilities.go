@@ -11,6 +11,8 @@ import (
 	"github.com/benpate/derp"
 	"github.com/benpate/mediaserver/ffmpeg"
 	"github.com/benpate/rosetta/convert"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/afero"
 )
 
 // getCoverPhoto loads an image from a URL, processes it into a
@@ -92,6 +94,33 @@ func writeTempFile(original io.Reader, extension string) (string, error) {
 
 	// Return the name of the temporary file to the caller
 	return tempFile.Name(), nil
+}
+
+// guaranteeFolderExists creates a folder in the afero Filesystem if it does not already exist
+func guaranteeFolderExists(fs afero.Fs, path string) error {
+
+	const location = "mediaserver.guaranteeFolderExists"
+
+	// Guarantee that a cache folder exists for this file
+	folderExists, err := afero.DirExists(fs, path)
+
+	if err != nil {
+		return derp.Wrap(err, location, "Error locating directory for cached file", path)
+	}
+
+	if !folderExists {
+
+		log.Trace().
+			Str("location", location).
+			Str("path", path).
+			Msg("Cached folder does not exist. Creating cache folder...")
+
+		if err := fs.Mkdir(path, 0777); err != nil {
+			return derp.Wrap(err, location, "Error creating directory for cached file", path)
+		}
+	}
+
+	return nil
 }
 
 // isFFmpegMediaType returns true if the mediaType can be processed by FFmpeg
