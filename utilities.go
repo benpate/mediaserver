@@ -1,5 +1,109 @@
 package mediaserver
 
+import (
+	"bytes"
+	"io"
+	"math/rand/v2"
+	"os"
+	"os/exec"
+	"time"
+
+	"github.com/benpate/derp"
+	"github.com/benpate/rosetta/convert"
+)
+
+// getCoverPhoto loads an image from a URL, processes it into a
+// reasonable size for an album cover photo, then returns the filename
+// of the resulting file (in the temp directory).
+// It is the caller's responsibility to delete the file when it is no longer needed.
+func getCoverPhoto(url string) (string, error) {
+
+	const location = "mediaserver.getCoverPhoto"
+
+	if !isFFmpegInstalled {
+		return "", derp.NewInternalError("mediaserver.GetCoverPhoto", "FFmpeg is not installed on this server")
+	}
+
+	tempFilename := getTempFilename(".jpg")
+
+	// Set up arguments slice to be passed into FFmpeg...
+	args := make([]string, 0)
+	var errors bytes.Buffer
+
+	// ... with some sugar to append values to arguments list
+	add := func(values ...string) {
+		args = append(args, values...)
+	}
+
+	// input from the URL
+	add("-i", url)
+
+	// crop and scale to 300x300
+	add("-vf", "crop='min(iw,ih)':'min(iw,ih)', scale='min(300,iw)':'min(300,ih)'")
+
+	// quality level 4 =>
+	add("-q:v", "4")
+
+	// output to temp file
+	add(tempFilename)
+
+	// Execute FFmpeg
+	ffmpeg := exec.Command("ffmpeg", args...)
+	ffmpeg.Stderr = &errors
+
+	if err := ffmpeg.Run(); err != nil {
+		os.Remove(tempFilename)
+		return "", derp.Wrap(err, location, "Error running FFmpeg", errors.String(), args)
+	}
+
+	// Return success.
+	return tempFilename, nil
+}
+
+// getTempFilename returns a valid name for a temporary file, but does not actually create the file.
+func getTempFilename(extension string) string {
+
+	// Create a unique filename for the temporary file
+	timestamp := convert.String(time.Now().UnixNano())
+	random := convert.String(rand.Int())
+	return os.TempDir() + "mediaserver-" + timestamp + "-" + random + extension
+}
+
+// writeTempFile writes a file to a temporary location on the local filesystem, using the provided extension
+// It is the caller's responsibility to delete the file when it is no longer needed.
+func writeTempFile(original io.Reader, extension string) (string, error) {
+
+	const location = "mediaserver.GetTempFile"
+
+	// Create a temporary file in the local machine filesystem
+	tempFile, err := os.CreateTemp("", "mediaserver-*"+extension)
+
+	if err != nil {
+		return "", derp.Wrap(err, location, "Error creating temporary file")
+	}
+
+	defer tempFile.Close()
+
+	// Copy the original file into the temporary file
+	if _, err := io.Copy(tempFile, original); err != nil {
+		return "", derp.Wrap(err, location, "Error copying original file to temporary file")
+	}
+
+	// Return the name of the temporary file to the caller
+	return tempFile.Name(), nil
+}
+
+// isFFmpegMediaType returns true if the mediaType can be processed by FFmpeg
+func isFFmpegMediaType(mediaType string) bool {
+
+	switch mediaType {
+	case "video", "image", "audio":
+		return true
+	}
+
+	return false
+}
+
 // round100
 func round100(number int) int {
 

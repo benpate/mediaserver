@@ -2,56 +2,68 @@ package mediaserver
 
 import (
 	"mime"
-	"net/url"
 	"strings"
 
 	"github.com/benpate/rosetta/convert"
 	"github.com/benpate/rosetta/list"
+	"github.com/benpate/rosetta/mapof"
 	"github.com/rs/zerolog/log"
 )
 
 // FileSpec represents all the parameters available for requesting a file.
 // This can be generated directly from a URL.
 type FileSpec struct {
-	Filename  string
-	Extension string // Set via file extension
-	Width     int    // Set via ?width=1920 querystring
-	Height    int    // Set via ?height=1080 querystring
-	Bitrate   int    // Set via ?bitrate=320 querystring
-	MimeType  string // Calculated from file extension
+	Filename          string       // Original filename
+	OriginalExtension string       // Original file extension
+	Extension         string       // Set via file extension
+	Width             int          // Set via ?width=1920 querystring
+	Height            int          // Set via ?height=1080 querystring
+	Bitrate           int          // Set via ?bitrate=320 querystring
+	Metadata          mapof.String // Metadata to add to the outbound file
+	Cache             bool         // If tTRUE, then allow caching
 }
 
+/*
 // NewFileSpec reads a URL and returns a fully populated FileSpec
 func NewFileSpec(file *url.URL, defaultType string) FileSpec {
 
-	fullname := list.Slash(file.Path).Last()
-	filename, extension := list.Dot(fullname).SplitTail()
+		fullname := list.Slash(file.Path).Last()
+		filename, extension := list.Dot(fullname).SplitTail()
 
-	if extension == "" {
-		extension = strings.ToLower(defaultType)
-	} else {
-		extension = "." + strings.ToLower(extension)
+		if extension == "" {
+			extension = strings.ToLower(defaultType)
+		} else {
+			extension = "." + strings.ToLower(extension)
+		}
+
+		height := convert.Int(file.Query().Get("height"))
+		width := convert.Int(file.Query().Get("width"))
+		bitrate := convert.Int(file.Query().Get("bitrate"))
+
+		return FileSpec{
+			Filename:  filename.String(),
+			Extension: extension,
+			Width:     width,
+			Height:    height,
+			Bitrate:   bitrate,
+		}
 	}
+*/
+func (ms *FileSpec) OriginalMimeType() string {
+	return mime.TypeByExtension(ms.OriginalExtension)
+}
 
-	mimeType := mime.TypeByExtension(extension)
+func (ms *FileSpec) OriginalMimeCategory() string {
+	return list.Slash(ms.OriginalMimeType()).First()
+}
 
-	height := convert.Int(file.Query().Get("height"))
-	width := convert.Int(file.Query().Get("width"))
-	bitrate := convert.Int(file.Query().Get("bitrate"))
-
-	return FileSpec{
-		Filename:  filename.String(),
-		Extension: extension,
-		Width:     width,
-		Height:    height,
-		Bitrate:   bitrate,
-		MimeType:  mimeType,
-	}
+func (ms *FileSpec) MimeType() string {
+	return mime.TypeByExtension(ms.Extension)
 }
 
 // MimeCategory returns the first half of the mime type
 func (ms *FileSpec) MimeCategory() string {
-	return list.Slash(ms.MimeType).First()
+	return list.Slash(ms.MimeType()).First()
 }
 
 // CachePath returns the complete path (within the cache directory) to the file requested by this FileSpec
@@ -157,7 +169,7 @@ func (ms *FileSpec) ffmpegArguments() []string {
 			result = append(result, "-c:v", "webp")
 		}
 
-		result = append(result, "-f", "image2pipe")
+		// result = append(result, "-f", "image2pipe")
 
 	case "audio":
 

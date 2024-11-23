@@ -1,8 +1,6 @@
 package mediaserver
 
 import (
-	"net/url"
-
 	"github.com/spf13/afero"
 )
 
@@ -20,7 +18,9 @@ func New(original afero.Fs, cache afero.Fs) MediaServer {
 	}
 }
 
+/*
 // FileSpec returns a new FileSpec for the provided URL
 func (ms MediaServer) FileSpec(file *url.URL, defaultType string) FileSpec {
 	return NewFileSpec(file, defaultType)
 }
+*/

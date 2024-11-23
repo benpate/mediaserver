@@ -2,8 +2,6 @@ package mediaserver
 
 import (
 	"io"
-	"net/http"
-	"time"
 
 	"github.com/benpate/derp"
 	"github.com/rs/zerolog/log"
@@ -14,6 +12,19 @@ import (
 func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 
 	const location = "mediaserver.Get"
+
+	// If caching is disabled, then process the file directly to the destination
+	if !filespec.Cache {
+
+		// Process the file into the cache.  Write it fully, before returning it to the caller.
+		if err := ms.Process(filespec, destination); err != nil {
+			return derp.ReportAndReturn(derp.Wrap(err, location, "Error processing original file", filespec))
+		}
+
+		return nil
+	}
+
+	// FALL THROUGH TO USE CACHING...
 
 	// If the file exists in the cache, then return it and exit
 	if err := ms.getFromCache(filespec.CachePath(), destination); err == nil {
@@ -26,53 +37,25 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 		return nil
 	}
 
-	// If we're here, it means that we don't have a cached file.  Let's make one :)
-	log.Trace().
-		Str("location", location).
-		Str("filename", filespec.Filename).
-		Msg("Cached file does not exist.  Creating cached file.")
-
-	// Try to open the original file
-	original, err := ms.openFileWithBackoff(filespec.Filename)
-
-	if err != nil {
-		return derp.ReportAndReturn(derp.NewNotFoundError(location, "Cannot find original file", filespec, err))
-	}
-
-	defer original.Close()
-
-	// Guarantee that a cache folder exists for this file
-	folderExists, err := afero.DirExists(ms.cache, filespec.CacheDir())
-
-	if err != nil {
-		return derp.ReportAndReturn(derp.Wrap(err, location, "Error locating directory for cached file", filespec))
-	}
-
-	if !folderExists {
-
-		log.Trace().
-			Str("location", location).
-			Str("filename", filespec.Filename).
-			Msg("Cached folder does not exist. Creating cache folder...")
-
-		if err := ms.cache.Mkdir(filespec.CacheDir(), 0777); err != nil {
-			return derp.ReportAndReturn(derp.Wrap(err, location, "Error creating directory for cached file", filespec))
-		}
+	// Guarantee that a folder exists to put the cached file into
+	if err := guaranteeFolderExists(ms.cache, filespec.CacheDir()); err != nil {
+		return derp.Wrap(err, location, "Error creating cache folder", filespec)
 	}
 
 	// Create a new cached file and write the processed file into the cache
+	// TODO: This should probably write to a temp file until the process is complete, then rename it.
 	cachedFile, err := ms.cache.Create(filespec.CachePath())
 
 	if err != nil {
-		return derp.ReportAndReturn(derp.Wrap(err, location, "Error creating file in mediaserver cache", filespec))
+		return derp.Wrap(err, location, "Error creating file in mediaserver cache", filespec)
 	}
 
 	defer cachedFile.Close()
 
 	// Process the file into the cache.  Write it fully, before returning it to the caller.
-	if err := ms.Process(original, filespec, cachedFile); err != nil {
+	if err := ms.Process(filespec, cachedFile); err != nil {
 		cachedFile.Close()
-		return derp.ReportAndReturn(derp.Wrap(err, location, "Error processing original file", filespec))
+		return derp.Wrap(err, location, "Error processing original file", filespec)
 	}
 
 	cachedFile.Close()
@@ -92,7 +75,7 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 		Str("filename", filespec.Filename).
 		Msg("Cached file returned to caller.")
 
-	// Great success.
+		// Great success.
 	return nil
 }
 
@@ -119,26 +102,29 @@ func (ms MediaServer) getFromCache(path string, destination io.Writer) error {
 	return nil
 }
 
-// openFileWithBackoff attempts to open a file, but waits for it to be available by
-// retrying with exponential backoff (up to 31 seconds)
-func (ms MediaServer) openFileWithBackoff(filename string) (afero.File, error) {
+// guaranteeFolderExists creates a folder in the afero Filesystem if it does not already exist
+func guaranteeFolderExists(fs afero.Fs, path string) error {
 
-	const location = "mediaserver.openFileWithBackoff"
+	const location = "mediaserver.guaranteeFolderExists"
 
-	// Otherwise, we need to find and cache the file first.
-	// Try to locate the original file (retry 5 times with exponential backoff 1 + 2 + 4 + 8 + 16 = 31)
-	var original afero.File
-	var err error
-	for retry := 0; retry < 5; retry++ {
+	// Guarantee that a cache folder exists for this file
+	folderExists, err := afero.DirExists(fs, path)
 
-		original, err = ms.original.Open(filename)
-
-		if err == nil {
-			return original, nil
-		}
-
-		time.Sleep(time.Duration(2^retry) * time.Second)
+	if err != nil {
+		return derp.Wrap(err, location, "Error locating directory for cached file", path)
 	}
 
-	return nil, derp.Wrap(err, location, "Cannot find original file", filename, derp.WithCode(http.StatusNotFound))
+	if !folderExists {
+
+		log.Trace().
+			Str("location", location).
+			Str("path", path).
+			Msg("Cached folder does not exist. Creating cache folder...")
+
+		if err := fs.Mkdir(path, 0777); err != nil {
+			return derp.Wrap(err, location, "Error creating directory for cached file", path)
+		}
+	}
+
+	return nil
 }
