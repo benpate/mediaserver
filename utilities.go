@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/benpate/derp"
+	"github.com/benpate/mediaserver/ffmpeg"
 	"github.com/benpate/rosetta/convert"
 )
 
@@ -20,7 +21,7 @@ func getCoverPhoto(url string) (string, error) {
 
 	const location = "mediaserver.getCoverPhoto"
 
-	if !isFFmpegInstalled {
+	if !ffmpeg.IsInstalled {
 		return "", derp.NewInternalError("mediaserver.GetCoverPhoto", "FFmpeg is not installed on this server")
 	}
 

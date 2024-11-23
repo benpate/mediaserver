@@ -8,18 +8,14 @@ import (
 	"strings"
 
 	"github.com/benpate/derp"
+	"github.com/benpate/mediaserver/ffmpeg"
 	"github.com/rs/zerolog/log"
 )
-
-// Now using homebrew-ffmpeg on MacOS: https://github.com/homebrew-ffmpeg/homebrew-ffmpeg
-
-// cs.opensource.google/go/x/image/webp
-// github.com/jdeng/goheif
 
 // Process decodes an image file and applies all of the processing steps requested in the FileSpec
 func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 
-	const location = "mediaserver.ProcessWith"
+	const location = "mediaserver.Process"
 
 	// Open the original file from the afero filesystem
 	originalFile, err := ms.original.Open(filespec.Filename)
@@ -30,7 +26,7 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 
 	defer originalFile.Close()
 
-	// If the original file can't be processed by FFmpeg
+	// If the original is not a media file (and can't be processed by FFmpeg)
 	// then just copy it directly from the original source
 	if !isFFmpegMediaType(filespec.OriginalMimeCategory()) {
 
@@ -41,13 +37,37 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 		return nil
 	}
 
-	// Fall through means this is an audio/vido/image
-	// that can be processed by FFmpeg
+	// Fall through means this is an Audio/Video/Image file
+	// that CAN be processed by FFmpeg
 
 	// Confirm that FFmpeg is installed
-	if !isFFmpegInstalled {
+	if !ffmpeg.IsInstalled {
 		return derp.NewInternalError(location, "FFmpeg is not installed on this server")
 	}
+
+	// Copy the original file into a temporary file.
+	// FFmpeg requires actual files (not input pipes) for certain kinds of inputs,
+	// for instance, when it needs to seek to the end of a media file to access metadata.
+	// Thisfile  will be deleted automatically when the function exits.
+	tempInputFile, err := writeTempFile(originalFile, filespec.OriginalExtension)
+
+	if err != nil {
+		return derp.Wrap(err, location, "Error opening original file", filespec)
+	}
+
+	defer derp.Report(os.Remove(tempInputFile))
+
+	// Create an empty file to write the output to.
+	// FFmpeg requies actual files (not output pipes) for certain kinds of outputs,
+	// for instance, when it needs to seek to the beginning of a media file to write metadata.
+	// This file will be deleted automatically when the function exits.
+	tempOutputFilename := getTempFilename(filespec.Extension)
+
+	defer derp.Report(os.Remove(tempOutputFilename))
+
+	/////////////////////////////////////////////////////////
+	// Now, let's assemble the FFmpeg command line arguments
+	/////////////////////////////////////////////////////////
 
 	// Set up arguments slice to be passed into FFmpeg...
 	args := make([]string, 0)
@@ -57,34 +77,8 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 		args = append(args, values...)
 	}
 
-	// Copy the original file into a temporary file.
-	// FFmpeg requires actual files (not input pipes) for certain kinds of inputs,
-	// for instance, when it needs to seek to the end of a media file to access metadata.
-	tempInputFile, err := writeTempFile(originalFile, filespec.OriginalExtension)
-
-	if err != nil {
-		return derp.Wrap(err, location, "Error opening original file", filespec)
-	}
-
-	// TODO: RESTORE THIS
-	// defer os.Remove(tempInputFile)
-
-	// Create an empty file to write the output to.
-	// FFmpeg requies actual files (not output pipes) for certain kinds of outputs,
-	// for instance, when it needs to seek to the beginning of a media file to write metadata.
-	tempOutputFilename := getTempFilename(filespec.Extension)
-
-	if err != nil {
-		return derp.Wrap(err, location, "Error opening original file", filespec)
-	}
-
-	defer os.Remove(tempOutputFilename)
-
-	//
-	// Now, let's assemble the FFmpeg command line arguments
-	//
-
-	add("-i", tempInputFile) // input #0 is the original file (now in the temp directory)
+	// input #0 is the original file (now in the temp directory)
+	add("-i", tempInputFile)
 
 	// Handle Media metadata (if present)
 	if len(filespec.Metadata) > 0 {
@@ -109,39 +103,29 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 
 		// Add all other metadata fields
 		for key, value := range filespec.Metadata {
-
-			switch key {
-			case "cover": // NOOP. Already handled above
-			default:
+			if key != "cover" {
 				value = strings.ReplaceAll(value, "\n", `\n`)
 				add("-metadata", key+"="+value)
 			}
 		}
-
-		// use the original codec without change
-		// add("-c", "copy")
-
-		// Wait for max size before writing.
-		// This may need to be written to a (seekable) temp file. :(
-		// https://stackoverflow.com/questions/54620528/metadata-in-mp3-not-working-when-piping-from-ffmpeg-with-album-art
-		// add("-flush_packets", "0")
 	}
 
-	// Determine FFmpeg operations based on the filespec
-	add(filespec.ffmpegArguments()...) // add arguments for parsing the original file
-	// add("pipe:1")                      // output result to stdout (the writer we received)
-	add(tempOutputFilename) // output result to a file
+	// Add arguments from the filespec to format the result file
+	add(filespec.ffmpegArguments()...)
 
+	// output result to the temporary output location
+	add(tempOutputFilename)
+
+	// Ok.  here's the command we're actually going to execute
 	log.Trace().Str("location", location).Msg("Executing: ffmpeg " + strings.Join(args, " "))
 
-	// Pipe the original to FFmpeg
+	// Execute FFmpeg command
 	var errors bytes.Buffer
 
 	ffmpeg := exec.Command("ffmpeg", args...)
 	ffmpeg.Stdout = output
 	ffmpeg.Stderr = &errors
 
-	// Execute FFmpeg
 	if err := ffmpeg.Run(); err != nil {
 		return derp.Wrap(err, location, "Error running FFmpeg", errors.String(), args)
 	}
