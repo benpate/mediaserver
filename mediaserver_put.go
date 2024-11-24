@@ -28,8 +28,10 @@ func (ms MediaServer) Put(filename string, file io.Reader) error {
 
 	destination.Close()
 
-	// This `defer` statement will remove the temporary file if there is an error
-	defer derp.Report(ms.original.Remove(tempFilename))
+	// Remove the temporary file before we exit
+	defer func() {
+		derp.Report(ms.original.Remove(tempFilename))
+	}()
 
 	// Once the upload is complete, rename the .tmp file to the correct filename
 	if err := ms.original.Rename(tempFilename, filename); err != nil {
