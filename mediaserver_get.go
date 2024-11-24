@@ -86,7 +86,7 @@ func (ms MediaServer) getFromCache(path string, destination io.Writer) error {
 
 	const location = "mediaserver.getFromCache"
 
-	// See if the file exists in the cache
+	// Try to find the file in the cache
 	cached, err := ms.cache.Open(path)
 
 	if err != nil {
@@ -95,7 +95,15 @@ func (ms MediaServer) getFromCache(path string, destination io.Writer) error {
 
 	defer cached.Close()
 
-	// If the file DOES exist, then copy it to the destination
+	// Verify that the file exists and is not empty.
+	// This adds resillience in case a file was created in the cache, but not written.
+	if stats, err := cached.Stat(); err != nil {
+		return derp.Wrap(err, location, "Error getting stats for cached file", path)
+	} else if stats.Size() == 0 {
+		return derp.NewNotFoundError(location, "Cached file is empty", path)
+	}
+
+	// Since the file DOES exist, now just copy it to the destination
 	if _, err := io.Copy(destination, cached); err != nil {
 		return derp.ReportAndReturn(derp.Wrap(err, "mediaserver.Get", "Error copying cached file to destination", path))
 	}
