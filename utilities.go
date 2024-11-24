@@ -76,7 +76,7 @@ func getTempFilename(extension string) string {
 // It is the caller's responsibility to delete the file when it is no longer needed.
 func writeTempFile(original io.Reader, extension string) (string, error) {
 
-	const location = "mediaserver.GetTempFile"
+	const location = "mediaserver.writeTempFile"
 
 	// Create a temporary file in the local machine filesystem
 	tempFile, err := os.CreateTemp("", "mediaserver-*"+extension)
@@ -100,6 +100,11 @@ func writeTempFile(original io.Reader, extension string) (string, error) {
 func guaranteeFolderExists(fs afero.Fs, path string) error {
 
 	const location = "mediaserver.guaranteeFolderExists"
+
+	log.Trace().
+		Str("location", location).
+		Str("path", path).
+		Msg("Checking for cache folder...")
 
 	// Guarantee that a cache folder exists for this file
 	folderExists, err := afero.DirExists(fs, path)
@@ -127,6 +132,7 @@ func guaranteeFolderExists(fs afero.Fs, path string) error {
 func isFFmpegMediaType(mediaType string) bool {
 
 	switch mediaType {
+
 	case "video", "image", "audio":
 		return true
 	}

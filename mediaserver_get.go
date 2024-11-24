@@ -56,7 +56,7 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 
 	// Process the file into the cache.  Write it fully, before returning it to the caller.
 	if err := ms.Process(filespec, cachedFile); err != nil {
-		cachedFile.Close()
+		derp.Report(ms.cache.Remove(cachedFile.Name()))
 		return derp.Wrap(err, location, "Error processing original file", filespec)
 	}
 
@@ -77,7 +77,7 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 		Str("filename", filespec.Filename).
 		Msg("Cached file returned to caller.")
 
-		// Great success.
+	// Great success.
 	return nil
 }
 

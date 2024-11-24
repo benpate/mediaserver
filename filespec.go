@@ -7,7 +7,6 @@ import (
 	"github.com/benpate/rosetta/convert"
 	"github.com/benpate/rosetta/list"
 	"github.com/benpate/rosetta/mapof"
-	"github.com/rs/zerolog/log"
 )
 
 // FileSpec represents all the parameters available for requesting a file.
@@ -236,8 +235,6 @@ func (ms *FileSpec) ffmpegArguments() []string {
 	case "video":
 
 	}
-
-	log.Debug().Msg("FFMPEG Arguments: " + strings.Join(result, " "))
 
 	return result
 }

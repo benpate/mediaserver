@@ -49,13 +49,14 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 	// FFmpeg requires actual files (not input pipes) for certain kinds of inputs,
 	// for instance, when it needs to seek to the end of a media file to access metadata.
 	// Thisfile  will be deleted automatically when the function exits.
-	tempInputFile, err := writeTempFile(originalFile, filespec.OriginalExtension)
+	tempInputFilename, err := writeTempFile(originalFile, filespec.OriginalExtension)
 
 	if err != nil {
 		return derp.Wrap(err, location, "Error opening original file", filespec)
 	}
 
-	defer derp.Report(os.Remove(tempInputFile))
+	log.Trace().Str("location", location).Str("tempOutputFilename", tempInputFilename).Msg("Created temp input file...")
+	defer os.Remove(tempInputFilename)
 
 	// Create an empty file to write the output to.
 	// FFmpeg requies actual files (not output pipes) for certain kinds of outputs,
@@ -63,7 +64,8 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 	// This file will be deleted automatically when the function exits.
 	tempOutputFilename := getTempFilename(filespec.Extension)
 
-	defer derp.Report(os.Remove(tempOutputFilename))
+	log.Trace().Str("location", location).Str("tempOutputFilename", tempOutputFilename).Msg("Created temp output file..")
+	defer os.Remove(tempOutputFilename)
 
 	/////////////////////////////////////////////////////////
 	// Now, let's assemble the FFmpeg command line arguments
@@ -78,7 +80,7 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 	}
 
 	// input #0 is the original file (now in the temp directory)
-	add("-i", tempInputFile)
+	add("-i", tempInputFilename)
 
 	// Handle Media metadata (if present)
 	if len(filespec.Metadata) > 0 {
@@ -141,7 +143,7 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 
 	// Copy the output file to the output writer
 	if _, err := io.Copy(output, outputFile); err != nil {
-		return derp.Wrap(err, location, "Error copying output file", tempOutputFilename)
+		return derp.Wrap(err, location, "Error copying working file to destination", tempOutputFilename)
 	}
 
 	return nil
