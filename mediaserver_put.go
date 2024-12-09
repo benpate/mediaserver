@@ -11,10 +11,8 @@ func (ms MediaServer) Put(filename string, file io.Reader) error {
 
 	const location = "mediaserver.Put"
 
-	tempFilename := filename + ".temp"
-
 	// Open the destination (in afero)
-	destination, err := ms.original.Create(tempFilename)
+	destination, err := ms.original.Create(filename)
 
 	if err != nil {
 		return derp.Wrap(err, location, "Error creating media file in 'original' filesystem", filename)
@@ -26,17 +24,11 @@ func (ms MediaServer) Put(filename string, file io.Reader) error {
 		return derp.Wrap(err, location, "Error writing media file in 'original' filesystem", filename)
 	}
 
+	// NOTE: This process used to upload to a temporary file first, then rename it
+	// to the final destination.  This caused problems with S3, because the rename
+	// operation is not atomic.
+
+	// Finish the transaction.
 	destination.Close()
-
-	// Remove the temporary file before we exit
-	defer func() {
-		derp.Report(ms.original.Remove(tempFilename))
-	}()
-
-	// Once the upload is complete, rename the .tmp file to the correct filename
-	if err := ms.original.Rename(tempFilename, filename); err != nil {
-		return derp.Wrap(err, location, "Error renaming media file in 'original' filesystem", filename)
-	}
-
 	return nil
 }
