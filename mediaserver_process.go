@@ -12,6 +12,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// ?? https://www.poxate.com/blog/awful-ways-to-create-pipelines-with-go/
+
 // Process decodes an image file and applies all of the processing steps requested in the FileSpec
 func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 
