@@ -6,6 +6,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/benpate/derp"
@@ -69,7 +70,7 @@ func getTempFilename(extension string) string {
 	// Create a unique filename for the temporary file
 	timestamp := convert.String(time.Now().UnixNano())
 	random := convert.String(rand.Int())
-	return os.TempDir() + "mediaserver-" + timestamp + "-" + random + extension
+	return filepath.Join(os.TempDir(), "mediaserver-"+timestamp+"-"+random+extension)
 }
 
 // writeTempFile writes a file to a temporary location on the local filesystem, using the provided extension
