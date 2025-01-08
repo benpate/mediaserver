@@ -6,7 +6,7 @@ toolchain go1.23.1
 
 require (
 	github.com/benpate/derp v0.31.1
-	github.com/benpate/rosetta v0.24.2
+	github.com/benpate/rosetta v0.24.3
 	github.com/rs/zerolog v1.33.0
 	github.com/spf13/afero v1.11.0
 	github.com/stretchr/testify v1.10.0
