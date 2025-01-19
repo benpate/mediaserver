@@ -48,6 +48,12 @@ func NewFileSpec(file *url.URL, defaultType string) FileSpec {
 		}
 	}
 */
+
+// DownloadFilename returns the name that should be used when downloading the file.
+func (ms *FileSpec) DownloadFilename() string {
+	return ms.Filename + "." + ms.Extension
+}
+
 func (ms *FileSpec) OriginalMimeType() string {
 	return mime.TypeByExtension(ms.OriginalExtension)
 }

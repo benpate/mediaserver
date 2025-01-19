@@ -1,43 +1,54 @@
 package mediaserver
 
 import (
-	"io"
+	"net/http"
+	"time"
 
 	"github.com/benpate/derp"
-	"github.com/rs/zerolog/log"
 )
 
 // Get locates the file, processes it if necessary, and returns it to the caller.
 // If the filespec.Cache is set to FALSE, then file will be processed and returned.
 // If the filespec.Cache is set to TRUE, then the processed file will retrieved
 // from the cache (if possible) and the processed file will be stored in the cache.
-func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
+func (ms MediaServer) Get(responseWriter http.ResponseWriter, request *http.Request, filespec FileSpec) error {
 
 	const location = "mediaserver.Get"
 
-	// If caching is disabled, then process the file directly to the destination
+	// RULE: Require a CachePath to use the cache
 	if !filespec.Cache {
+		return derp.NewInternalError(location, "File cache must be defined to use MediaServer")
+	}
 
-		// Process the file into the cache.  Write it fully, before returning it to the caller.
-		if err := ms.Process(filespec, destination); err != nil {
-			return derp.ReportAndReturn(derp.Wrap(err, location, "Error processing original file", filespec))
-		}
-
+	// If the file has already been cached, then send it (or partial contents) to the caller
+	if cachedFile, err := ms.cache.Open(filespec.CachePath()); err == nil {
+		http.ServeContent(responseWriter, request, filespec.DownloadFilename(), time.Time{}, cachedFile)
+		cachedFile.Close()
 		return nil
 	}
 
-	// FALL THROUGH TO USE CACHING...
-
-	// If the file exists in the cache, then return it and exit
-	if err := ms.getFromCache(filespec.CachePath(), destination); err == nil {
-
-		log.Trace().
-			Str("location", location).
-			Str("filename", filespec.Filename).
-			Msg("File found in cache.  Returning cached file.")
-
-		return nil
+	// Otherwise, process and cache the file
+	if err := ms.processAndCache(filespec); err != nil {
+		return derp.Wrap(err, location, "Error processing and caching file", filespec)
 	}
+
+	// Then try to load it from the cache again
+	cachedFile, err := ms.cache.Open(filespec.CachePath())
+
+	if err != nil {
+		return derp.Wrap(err, location, "Error opening cached file", filespec)
+	}
+
+	// Return the file (or partial contents) to the caller
+	http.ServeContent(responseWriter, request, filespec.DownloadFilename(), time.Time{}, cachedFile)
+	cachedFile.Close()
+	return nil
+}
+
+// processAndCache writes a new processed version of the file into the cache
+func (ms *MediaServer) processAndCache(filespec FileSpec) error {
+
+	const location = "mediaserver.processAndCache"
 
 	// Guarantee that a folder exists to put the cached file into
 	if err := guaranteeFolderExists(ms.cache, filespec.CacheDir()); err != nil {
@@ -60,54 +71,6 @@ func (ms MediaServer) Get(filespec FileSpec, destination io.Writer) error {
 		return derp.Wrap(err, location, "Error processing original file", filespec)
 	}
 
-	cachedFile.Close()
-
-	log.Trace().
-		Str("location", location).
-		Str("filename", filespec.Filename).
-		Msg("Created new cached file...")
-
-	// Re-read the file from the cache
-	if err := ms.getFromCache(filespec.CachePath(), destination); err != nil {
-		return derp.Wrap(err, location, "Error reading cached file", filespec)
-	}
-
-	log.Trace().
-		Str("location", location).
-		Str("filename", filespec.Filename).
-		Msg("Cached file returned to caller.")
-
 	// Great success.
-	return nil
-}
-
-// getFromCache writes the cached file to the destination, or returns an error
-func (ms MediaServer) getFromCache(path string, destination io.Writer) error {
-
-	const location = "mediaserver.getFromCache"
-
-	// Try to find the file in the cache
-	cached, err := ms.cache.Open(path)
-
-	if err != nil {
-		return derp.Wrap(err, location, "Error opening cached file", path)
-	}
-
-	defer cached.Close()
-
-	// Verify that the file exists and is not empty.
-	// This adds resillience in case a file was created in the cache, but not written.
-	if stats, err := cached.Stat(); err != nil {
-		return derp.Wrap(err, location, "Error getting stats for cached file", path)
-	} else if stats.Size() == 0 {
-		return derp.NewNotFoundError(location, "Cached file is empty", path)
-	}
-
-	// Since the file DOES exist, now just copy it to the destination
-	if _, err := io.Copy(destination, cached); err != nil {
-		return derp.ReportAndReturn(derp.Wrap(err, "mediaserver.Get", "Error copying cached file to destination", path))
-	}
-
-	// Smashing!!
 	return nil
 }
