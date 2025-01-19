@@ -1,8 +1,8 @@
 package mediaserver
 
 import (
+	"io"
 	"net/http"
-	"time"
 
 	"github.com/benpate/derp"
 )
@@ -22,9 +22,12 @@ func (ms MediaServer) Get(responseWriter http.ResponseWriter, request *http.Requ
 
 	// If the file has already been cached, then send it (or partial contents) to the caller
 	if cachedFile, err := ms.cache.Open(filespec.CachePath()); err == nil {
-		http.ServeContent(responseWriter, request, filespec.DownloadFilename(), time.Time{}, cachedFile)
-		cachedFile.Close()
-		return nil
+		defer cachedFile.Close()
+		_, err := io.Copy(responseWriter, cachedFile)
+		return err
+		//		http.ServeContent(responseWriter, request, filespec.DownloadFilename(), time.Time{}, cachedFile)
+		//		cachedFile.Close()
+		//		return nil
 	}
 
 	// Otherwise, process and cache the file
@@ -40,9 +43,13 @@ func (ms MediaServer) Get(responseWriter http.ResponseWriter, request *http.Requ
 	}
 
 	// Return the file (or partial contents) to the caller
-	http.ServeContent(responseWriter, request, filespec.DownloadFilename(), time.Time{}, cachedFile)
-	cachedFile.Close()
-	return nil
+	defer cachedFile.Close()
+	_, err = io.Copy(responseWriter, cachedFile)
+	return err
+
+	// http.ServeContent(responseWriter, request, filespec.DownloadFilename(), time.Time{}, cachedFile)
+	// cachedFile.Close()
+	// return nil
 }
 
 // processAndCache writes a new processed version of the file into the cache
