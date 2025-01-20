@@ -30,6 +30,14 @@ func (ms MediaServer) Serve(responseWriter http.ResponseWriter, request *http.Re
 
 	defer workingFile.Close()
 
+	// Populate header values
+	header := responseWriter.Header()
+	header.Set("ETag", "IMMUTABLE")
+
+	if header.Get("Cache-Control") == "" {
+		header.Set("Cache-Control", "public, max-age=86400, immutable") // Store in public caches for 1 day
+	}
+
 	// Serve the working file
 	workingFileInfo, _ := workingFile.Stat()
 	http.ServeContent(responseWriter, request, filespec.DownloadFilename(), workingFileInfo.ModTime(), workingFile)
