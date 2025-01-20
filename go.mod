@@ -7,6 +7,7 @@ toolchain go1.23.1
 require (
 	github.com/benpate/derp v0.31.1
 	github.com/benpate/rosetta v0.24.3
+	github.com/maypok86/otter v1.2.4
 	github.com/rs/zerolog v1.33.0
 	github.com/spf13/afero v1.11.0
 	github.com/stretchr/testify v1.10.0
@@ -16,6 +17,8 @@ require (
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/benpate/exp v0.8.4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dolthub/maphash v0.1.0 // indirect
+	github.com/gammazero/deque v0.2.1 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

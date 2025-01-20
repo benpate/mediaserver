@@ -12,7 +12,6 @@ import (
 	"github.com/benpate/derp"
 	"github.com/benpate/mediaserver/ffmpeg"
 	"github.com/benpate/rosetta/convert"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/afero"
 )
 
@@ -97,35 +96,24 @@ func writeTempFile(original io.Reader, extension string) (string, error) {
 	return tempFile.Name(), nil
 }
 
-// guaranteeFolderExists creates a folder in the afero Filesystem if it does not already exist
-func guaranteeFolderExists(fs afero.Fs, path string) error {
+// ensureAferoFolderExists creates a folder in the afero Filesystem if it does not already exist
+func ensureAferoFolderExists(fs afero.Fs, path string) error {
 
-	const location = "mediaserver.guaranteeFolderExists"
+	const location = "mediaserver.ensureAferoFolderExists"
 
-	log.Trace().
-		Str("location", location).
-		Str("path", path).
-		Msg("Checking for cache folder...")
-
-	// Guarantee that a cache folder exists for this file
-	folderExists, err := afero.DirExists(fs, path)
-
-	if err != nil {
-		return derp.Wrap(err, location, "Error locating directory for cached file", path)
+	// If the folder exists, then we're done.
+	if folderExists, err := afero.DirExists(fs, path); err != nil {
+		return derp.Wrap(err, location, "Error checking for directory", path)
+	} else if folderExists {
+		return nil
 	}
 
-	if !folderExists {
-
-		log.Trace().
-			Str("location", location).
-			Str("path", path).
-			Msg("Cached folder does not exist. Creating cache folder...")
-
-		if err := fs.Mkdir(path, 0777); err != nil {
-			return derp.Wrap(err, location, "Error creating directory for cached file", path)
-		}
+	// Otherwise, create the folder in Afero
+	if err := fs.Mkdir(path, 0777); err != nil {
+		return derp.Wrap(err, location, "Error creating directory for cached file", path)
 	}
 
+	// Success
 	return nil
 }
 

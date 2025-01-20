@@ -9,7 +9,7 @@ func (ms MediaServer) Delete(filename string) error {
 		return derp.Wrap(err, "mediaserver.Delete", "Error removing media file in 'original' filesystem", filename)
 	}
 
-	if err := ms.cache.RemoveAll(filename); err != nil {
+	if err := ms.processed.RemoveAll(filename); err != nil {
 		return derp.Wrap(err, "mediaserver.Delete", "Error removing media files in 'cache' filesystem", filename)
 	}
 

@@ -12,8 +12,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// ?? https://www.poxate.com/blog/awful-ways-to-create-pipelines-with-go/
-
 // Process decodes an image file and applies all of the processing steps requested in the FileSpec
 func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 
@@ -148,5 +146,35 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 		return derp.Wrap(err, location, "Error copying working file to destination", tempOutputFilename)
 	}
 
+	return nil
+}
+
+// ensureProcessedFileExists writes a new processed version of the file into the cache
+func (ms *MediaServer) ensureProcessedFileExists(filespec FileSpec) error {
+
+	const location = "mediaserver.ensureProcessedFileExists"
+
+	// Guarantee that a folder exists to put the processed file into
+	if err := ensureAferoFolderExists(ms.processed, filespec.ProcessedDir()); err != nil {
+		return derp.Wrap(err, location, "Error creating cache folder", filespec)
+	}
+
+	// Create a new processed file and write the processed file into the cache
+	// TODO: This should probably write to a temp file until the process is complete, then rename it.
+	cachedFile, err := ms.processed.Create(filespec.ProcessedPath())
+
+	if err != nil {
+		return derp.Wrap(err, location, "Error creating file in mediaserver cache", filespec)
+	}
+
+	defer cachedFile.Close()
+
+	// Process the file into the cache.  Write it fully, before returning it to the caller.
+	if err := ms.Process(filespec, cachedFile); err != nil {
+		derp.Report(ms.processed.Remove(cachedFile.Name()))
+		return derp.Wrap(err, location, "Error processing original file", filespec)
+	}
+
+	// Great success.
 	return nil
 }

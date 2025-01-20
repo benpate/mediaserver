@@ -14,141 +14,132 @@ import (
 type FileSpec struct {
 	Filename          string       // Original filename
 	OriginalExtension string       // Original file extension
-	Extension         string       // Set via file extension
-	Width             int          // Set via ?width=1920 querystring
-	Height            int          // Set via ?height=1080 querystring
-	Bitrate           int          // Set via ?bitrate=320 querystring
+	Extension         string       // File extension including a dot (.mp3)
+	Width             int          // For images and videos, the requested width
+	Height            int          // For images and videos, the requested height
+	Bitrate           int          // For audio and videos, the audio bitrage
 	Metadata          mapof.String // Metadata to add to the outbound file
-	Cache             bool         // If tTRUE, then allow caching
+	Cache             bool         // If TRUE, then allow caching
 }
-
-/*
-// NewFileSpec reads a URL and returns a fully populated FileSpec
-func NewFileSpec(file *url.URL, defaultType string) FileSpec {
-
-		fullname := list.Slash(file.Path).Last()
-		filename, extension := list.Dot(fullname).SplitTail()
-
-		if extension == "" {
-			extension = strings.ToLower(defaultType)
-		} else {
-			extension = "." + strings.ToLower(extension)
-		}
-
-		height := convert.Int(file.Query().Get("height"))
-		width := convert.Int(file.Query().Get("width"))
-		bitrate := convert.Int(file.Query().Get("bitrate"))
-
-		return FileSpec{
-			Filename:  filename.String(),
-			Extension: extension,
-			Width:     width,
-			Height:    height,
-			Bitrate:   bitrate,
-		}
-	}
-*/
 
 // DownloadFilename returns the name that should be used when downloading the file.
-func (ms *FileSpec) DownloadFilename() string {
-	return ms.Filename + "." + ms.Extension
+func (filespec *FileSpec) DownloadFilename() string {
+	return filespec.Filename + filespec.Extension
 }
 
-func (ms *FileSpec) OriginalMimeType() string {
-	return mime.TypeByExtension(ms.OriginalExtension)
+func (filespec *FileSpec) OriginalMimeType() string {
+	return mime.TypeByExtension(filespec.OriginalExtension)
 }
 
-func (ms *FileSpec) OriginalMimeCategory() string {
-	return list.Slash(ms.OriginalMimeType()).First()
+func (filespec *FileSpec) OriginalMimeCategory() string {
+	return list.Slash(filespec.OriginalMimeType()).First()
 }
 
-func (ms *FileSpec) MimeType() string {
-	return mime.TypeByExtension(ms.Extension)
+func (filespec *FileSpec) MimeType() string {
+	return mime.TypeByExtension(filespec.Extension)
 }
 
 // MimeCategory returns the first half of the mime type
-func (ms *FileSpec) MimeCategory() string {
-	return list.Slash(ms.MimeType()).First()
+func (filespec *FileSpec) MimeCategory() string {
+	return list.Slash(filespec.MimeType()).First()
 }
 
-// CachePath returns the complete path (within the cache directory) to the file requested by this FileSpec
-func (ms *FileSpec) CachePath() string {
-	return ms.CacheDir() + "/" + ms.CacheFilename()
+// ProcessedPath returns the complete path (within the cache directory) to the file requested by this FileSpec
+func (filespec *FileSpec) ProcessedPath() string {
+	return filespec.ProcessedDir() + "/" + filespec.ProcessedFilename()
 }
 
-// CacheDir returns the name of the directory within the cache where versions of this file will be stored.
-func (ms *FileSpec) CacheDir() string {
-	return ms.Filename
+// ProcessedDir returns the name of the directory within the cache where versions of this file will be stored.
+func (filespec *FileSpec) ProcessedDir() string {
+	return filespec.Filename
 }
 
-// CacheFilename returns the filename to be used when retrieving this from the FileSpec cache.
-func (ms *FileSpec) CacheFilename() string {
+// ProcessedFilename returns the filename to be used when retrieving this from the FileSpec cache.
+func (filespec *FileSpec) ProcessedFilename() string {
 
 	var buffer strings.Builder
 
 	buffer.WriteString("cached")
-
-	switch ms.MimeCategory() {
-
-	case "image":
-		if ms.Width != 0 {
-			buffer.WriteString("_w" + convert.String(ms.Width))
-		}
-		if ms.Height != 0 {
-			buffer.WriteString("_h" + convert.String(ms.Height))
-		}
-
-	case "audio":
-		if ms.Bitrate != 0 {
-			buffer.WriteString("_b" + convert.String(ms.Bitrate))
-		}
-	}
-
-	buffer.WriteString(ms.Extension)
+	filespec.writeFilenameArgs(&buffer)
+	buffer.WriteString(filespec.Extension)
 
 	return buffer.String()
 }
 
-func (ms *FileSpec) AspectRatio() float64 {
-	if (ms.Width == 0) || (ms.Height == 0) {
+func (filespec *FileSpec) WorkingFilename() string {
+	var buffer strings.Builder
+
+	buffer.WriteString(filespec.Filename)
+	filespec.writeFilenameArgs(&buffer)
+	buffer.WriteString(filespec.Extension)
+
+	return buffer.String()
+}
+
+func (filespec *FileSpec) writeFilenameArgs(buffer *strings.Builder) {
+
+	switch filespec.MimeCategory() {
+
+	case "image":
+		if filespec.Width != 0 {
+			buffer.WriteString("_w" + convert.String(filespec.Width))
+		}
+		if filespec.Height != 0 {
+			buffer.WriteString("_h" + convert.String(filespec.Height))
+		}
+
+	case "audio":
+		if filespec.Bitrate != 0 {
+			buffer.WriteString("_b" + convert.String(filespec.Bitrate))
+		}
+	}
+}
+
+func (filespec *FileSpec) AspectRatio() float64 {
+
+	if filespec.Width == 0 {
 		return 0
 	}
 
-	return float64(ms.Width) / float64(ms.Height)
+	if filespec.Height == 0 {
+		return 0
+	}
+
+	return float64(filespec.Width) / float64(filespec.Height)
 }
 
 // Resize returns TRUE if the FileSpec is requesting that the file be resized.
-func (ms *FileSpec) Resize() bool {
-	return (ms.Width > 0) || (ms.Height > 0)
+func (filespec *FileSpec) Resize() bool {
+	return (filespec.Width > 0) || (filespec.Height > 0)
 }
 
 // CacheWidth returns the width of the file to save in the cache
-func (ms *FileSpec) CacheWidth() int {
-	return round100(ms.Width)
+func (filespec *FileSpec) CacheWidth() int {
+	return round100(filespec.Width)
 }
 
 // CacheHeight returns the height of the file to save in the cache
-func (ms *FileSpec) CacheHeight() int {
-	return round100(ms.Height)
+func (filespec *FileSpec) CacheHeight() int {
+	return round100(filespec.Height)
 }
 
-func (ms *FileSpec) ffmpegArguments() []string {
+func (filespec *FileSpec) ffmpegArguments() []string {
 
 	// Build the command line arguments
 	result := make([]string, 0)
 
-	switch ms.MimeCategory() {
+	switch filespec.MimeCategory() {
 
 	case "image":
 
 		// Determine new image dimensions
-		width := convert.String(first(ms.CacheWidth(), -1))
-		height := convert.String(first(ms.CacheHeight(), -1))
+		width := convert.String(first(filespec.CacheWidth(), -1))
+		height := convert.String(first(filespec.CacheHeight(), -1))
 		filters := make([]string, 0)
 
-		if ms.Resize() {
+		if filespec.Resize() {
 
-			if ms.Width == ms.Height {
+			if filespec.Width == filespec.Height {
 				filters = append(filters, "crop='min(iw,ih)':'min(iw,ih)'")
 			}
 
@@ -159,7 +150,7 @@ func (ms *FileSpec) ffmpegArguments() []string {
 			result = append(result, "-vf", strings.Join(filters, ", "))
 		}
 
-		switch ms.Extension {
+		switch filespec.Extension {
 
 		case ".png":
 			result = append(result, "-c:v", "png")
@@ -178,7 +169,7 @@ func (ms *FileSpec) ffmpegArguments() []string {
 
 	case "audio":
 
-		switch ms.Extension {
+		switch filespec.Extension {
 
 		case ".aac":
 			result = append(result, "-c:a", "libfdk_aac")
@@ -200,7 +191,7 @@ func (ms *FileSpec) ffmpegArguments() []string {
 			result = append(result, "-f", "ogg")
 
 		default:
-			ms.Extension = ".mp3"
+			filespec.Extension = ".mp3"
 			result = append(result, "-c:a", "libmp3lame")
 			result = append(result, "-f", "mp3")
 		}
@@ -208,34 +199,34 @@ func (ms *FileSpec) ffmpegArguments() []string {
 		/*
 			// https://trac.ffmpeg.org/wiki/Encode/MP3
 			switch {
-			case ms.Bitrate == 0:
-			case ms.Bitrate < 85:
+			case filespec.Bitrate == 0:
+			case filespec.Bitrate < 85:
 				result = append(result, "-q:a", "9")
-			case ms.Bitrate < 105:
+			case filespec.Bitrate < 105:
 				result = append(result, "-q:a", "8")
-			case ms.Bitrate < 120:
+			case filespec.Bitrate < 120:
 				result = append(result, "-q:a", "7")
-			case ms.Bitrate < 130:
+			case filespec.Bitrate < 130:
 				result = append(result, "-q:a", "6")
-			case ms.Bitrate < 150:
+			case filespec.Bitrate < 150:
 				result = append(result, "-q:a", "5")
-			case ms.Bitrate < 185:
+			case filespec.Bitrate < 185:
 				result = append(result, "-q:a", "4")
-			case ms.Bitrate < 195:
+			case filespec.Bitrate < 195:
 				result = append(result, "-q:a", "3")
-			case ms.Bitrate < 210:
+			case filespec.Bitrate < 210:
 				result = append(result, "-q:a", "2")
-			case ms.Bitrate < 250:
+			case filespec.Bitrate < 250:
 				result = append(result, "-q:a", "1")
-			case ms.Bitrate < 320:
+			case filespec.Bitrate < 320:
 				result = append(result, "-q:a", "0")
 			default:
 				result = append(result, "-b:a", "320k")
 			}
 		*/
 
-		if ms.Bitrate > 0 {
-			result = append(result, "-b:a", convert.String(ms.Bitrate)+"k")
+		if filespec.Bitrate > 0 {
+			result = append(result, "-b:a", convert.String(filespec.Bitrate)+"k")
 		}
 
 	case "video":

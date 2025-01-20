@@ -6,21 +6,17 @@ import (
 
 // MediaServer manages files on a filesystem and performs image processing when requested.
 type MediaServer struct {
-	original afero.Fs // Source directory for original images
-	cache    afero.Fs // Cache directory for manipulated images (may be deleted)
+	original  afero.Fs          // Directory for original source files
+	processed afero.Fs          // Directory for files that have been processed (may be deleted)
+	working   *WorkingDirectory // Directory for temporary/working files
 }
 
 // New returns a fully initialized MediaServer
-func New(original afero.Fs, cache afero.Fs) MediaServer {
+func New(original afero.Fs, processed afero.Fs, working *WorkingDirectory) MediaServer {
+
 	return MediaServer{
-		original: original,
-		cache:    cache,
+		original:  original,
+		processed: processed,
+		working:   working,
 	}
 }
-
-/*
-// FileSpec returns a new FileSpec for the provided URL
-func (ms MediaServer) FileSpec(file *url.URL, defaultType string) FileSpec {
-	return NewFileSpec(file, defaultType)
-}
-*/
