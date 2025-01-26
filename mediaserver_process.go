@@ -10,6 +10,7 @@ import (
 	"github.com/benpate/derp"
 	"github.com/benpate/mediaserver/ffmpeg"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/afero"
 )
 
 // Process decodes an image file and applies all of the processing steps requested in the FileSpec
@@ -153,6 +154,13 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 func (ms *MediaServer) ensureProcessedFileExists(filespec FileSpec) error {
 
 	const location = "mediaserver.ensureProcessedFileExists"
+
+	// If the processed file already exists, then there's nothing more to do.
+	if exists, _ := afero.Exists(ms.processed, filespec.ProcessedPath()); exists {
+		return nil
+	}
+
+	log.Trace().Str("location", location).Str("processedPath", filespec.ProcessedPath()).Msg("Processed file does not exist.  Creating...")
 
 	// Guarantee that a folder exists to put the processed file into
 	if err := ensureAferoFolderExists(ms.processed, filespec.ProcessedDir()); err != nil {
