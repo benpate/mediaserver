@@ -165,8 +165,6 @@ func (filespec *FileSpec) ffmpegArguments() []string {
 			result = append(result, "-c:v", "webp")
 		}
 
-		// result = append(result, "-f", "image2pipe")
-
 	case "audio":
 
 		switch filespec.Extension {
@@ -189,6 +187,11 @@ func (filespec *FileSpec) ffmpegArguments() []string {
 			result = append(result, "-c:a", "libvorbis")
 			result = append(result, "-movflags", "+faststart")
 			result = append(result, "-f", "ogg")
+
+		case ".opus":
+			result = append(result, "-c:a", "libopus")
+			result = append(result, "-movflags", "+faststart")
+			result = append(result, "-f", "opus")
 
 		default:
 			filespec.Extension = ".mp3"
