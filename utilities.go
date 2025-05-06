@@ -24,7 +24,7 @@ func getCoverPhoto(url string) (string, error) {
 	const location = "mediaserver.getCoverPhoto"
 
 	if !ffmpeg.IsInstalled {
-		return "", derp.NewInternalError("mediaserver.GetCoverPhoto", "FFmpeg is not installed on this server")
+		return "", derp.InternalError("mediaserver.GetCoverPhoto", "FFmpeg is not installed on this server")
 	}
 
 	tempFilename := getTempFilename(".jpg")
