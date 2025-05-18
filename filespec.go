@@ -22,6 +22,12 @@ type FileSpec struct {
 	Cache             bool         // If TRUE, then allow caching
 }
 
+func NewFileSpec() FileSpec {
+	return FileSpec{
+		Metadata: mapof.NewString(),
+	}
+}
+
 // DownloadFilename returns the name that should be used when downloading the file.
 func (filespec *FileSpec) DownloadFilename() string {
 	return filespec.Filename + filespec.Extension
