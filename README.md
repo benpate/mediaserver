@@ -7,7 +7,7 @@
 [![Codecov](https://img.shields.io/codecov/c/github/benpate/mediaserver.svg?style=flat-square)](https://codecov.io/gh/benpate/mediaserver)
 
 
-Media Server is a media manipulation library that works inside of your existing applications.  It manages uploads and downloads, and lets you translate files into different encodings on the fly.  It works primarily with images and audio files, with video manipulations currently under development.
+Media Server is a media manipulation library that works inside of your existing applications.  It manages uploads and downloads, and lets you translate files into different encodings on the fly using FFmpeg.  It works primarily with images and audio files, with video manipulations currently under development.
 
 ```go
 
