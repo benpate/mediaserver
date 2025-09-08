@@ -9,7 +9,7 @@ require (
 	github.com/benpate/rosetta v0.25.15
 	github.com/maypok86/otter v1.2.4
 	github.com/rs/zerolog v1.34.0
-	github.com/spf13/afero v1.14.0
+	github.com/spf13/afero v1.15.0
 	github.com/stretchr/testify v1.11.1
 )
 
