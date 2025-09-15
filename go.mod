@@ -6,7 +6,7 @@ toolchain go1.24.1
 
 require (
 	github.com/benpate/derp v0.32.8
-	github.com/benpate/rosetta v0.25.15
+	github.com/benpate/rosetta v0.25.16
 	github.com/maypok86/otter v1.2.4
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/afero v1.14.0
