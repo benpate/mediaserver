@@ -39,7 +39,12 @@ func (ms MediaServer) Serve(responseWriter http.ResponseWriter, request *http.Re
 	}
 
 	// Serve the working file
-	workingFileInfo, _ := workingFile.Stat()
+	workingFileInfo, err := workingFile.Stat()
+
+	if err != nil {
+		return derp.Wrap(err, location, "Unable to get stats for working file", workingFilename)
+	}
+
 	http.ServeContent(responseWriter, request, filespec.DownloadFilename(), workingFileInfo.ModTime(), workingFile)
 
 	// Content (should be) served.
