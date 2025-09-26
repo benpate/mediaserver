@@ -108,7 +108,7 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 		for key, value := range filespec.Metadata {
 			if key != "cover" {
 				value = strings.ReplaceAll(value, "\n", `\n`)
-				add("-metadata", key+"="+value)
+				add("-metadata", key+`="`+value+`"`)
 			}
 		}
 	}
