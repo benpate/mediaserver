@@ -55,8 +55,12 @@ func getCoverPhoto(url string) (string, error) {
 	ffmpeg.Stderr = &errors
 
 	if err := ffmpeg.Run(); err != nil {
-		os.Remove(tempFilename)
-		return "", derp.Wrap(err, location, "Error running FFmpeg", errors.String(), args)
+
+		if errRemove := os.Remove(tempFilename); errRemove != nil {
+			return "", derp.Wrap(err, location, "Error returned by FFmpeg", errors.String(), args, errRemove)
+		}
+
+		return "", derp.Wrap(err, location, "Error returned by FFmpeg", errors.String(), args)
 	}
 
 	// Return success.

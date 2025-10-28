@@ -65,23 +65,34 @@ func (wd *WorkingDirectory) Exists(name string) bool {
 // Write adds a new file into the working directory, and sets a TTL for the file to be deleted
 func (wd *WorkingDirectory) Write(name string, reader io.Reader) error {
 
+	const location = "mediaserver.WorkingDirector.Write"
+
 	filename := wd.filename(name)
 
 	// Open the file
 	writer, err := os.Create(filename)
 
 	if err != nil {
-		return derp.Wrap(err, "mediaserver.WorkingDirectory.Add", "Error creating file", filename)
+		return derp.Wrap(err, location, "Unable to create file", filename)
 	}
 
 	// Copy the data into the file
 	if _, err := io.Copy(writer, reader); err != nil {
-		writer.Close()
-		derp.Report(os.Remove(filename))
-		return derp.Wrap(err, "mediaserver.WorkingDirectory.Add", "Error copying data into file", filename)
+
+		if errClose := writer.Close(); errClose != nil {
+			return derp.Wrap(err, location, "Unable to copy data into file", filename, errClose)
+		}
+
+		if errRemove := os.Remove(filename); errRemove != nil {
+			return derp.Wrap(err, location, "Unable to copy data into file", filename, errRemove)
+		}
+
+		return derp.Wrap(err, location, "Unable to copy data into file", filename)
 	}
 
-	writer.Close()
+	if err := writer.Close(); err != nil {
+		return derp.Wrap(err, location, "Unable to close file writer")
+	}
 
 	// Add the file to the cache
 	wd.cache.Set(name, time.Now().Add(wd.ttl).Unix())
@@ -92,11 +103,13 @@ func (wd *WorkingDirectory) Write(name string, reader io.Reader) error {
 // It is the caller's responsibility to close the file when finished.
 func (wd *WorkingDirectory) Open(name string) (*os.File, error) {
 
+	const location = "mediaserver.WorkingDirectory.Open"
+
 	// Try to open the file.
 	file, err := os.Open(wd.filename(name))
 
 	if err != nil {
-		return nil, derp.Wrap(err, "mediaserver.WorkingDirectory.Get", "Error opening file", name)
+		return nil, derp.Wrap(err, location, "Error opening file", name)
 	}
 
 	// Reset the TTL
