@@ -18,17 +18,21 @@ func (ms MediaServer) Serve(responseWriter http.ResponseWriter, request *http.Re
 
 	// Guarantee that we have a working file to serve
 	if err := ms.esureWorkingFileExists(filespec); err != nil {
-		return derp.Wrap(err, location, "Error ensuring working file exists", filespec)
+		return derp.Wrap(err, location, "Unable to ensure working file exists", filespec)
 	}
 
 	// Load the working file
 	workingFile, err := ms.working.Open(workingFilename)
 
 	if err != nil {
-		return derp.Wrap(err, location, "Error opening working file", workingFilename)
+		return derp.Wrap(err, location, "Unable to open working file", workingFilename)
 	}
 
-	defer workingFile.Close()
+	defer func() {
+		if err := workingFile.Close(); err != nil {
+			derp.Report(derp.Wrap(err, location, "Unable to close working file", workingFilename))
+		}
+	}()
 
 	// Populate header values
 	header := responseWriter.Header()
@@ -64,19 +68,19 @@ func (ms MediaServer) esureWorkingFileExists(filespec FileSpec) error {
 
 	// Guarantee that we have a processed file to work with
 	if err := ms.ensureProcessedFileExists(filespec); err != nil {
-		return derp.Wrap(err, location, "Error ensuring processed file exists", filespec)
+		return derp.Wrap(err, location, "Unable to ensure processed file exists", filespec)
 	}
 
 	// Re-open the processedFile
 	processedFile, err := ms.processed.Open(filespec.ProcessedPath())
 
 	if err != nil {
-		return derp.Wrap(err, location, "Error opening processed file", filespec)
+		return derp.Wrap(err, location, "Unable to open processed file", filespec)
 	}
 
 	// Copy the (probably remote) processed file to a (definitely local) working file
 	if err := ms.working.Write(workingFilename, processedFile); err != nil {
-		return derp.Wrap(err, location, "Error copying working file", filespec)
+		return derp.Wrap(err, location, "Unable to copy working file", filespec)
 	}
 
 	// Triumph

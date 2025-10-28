@@ -22,17 +22,21 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 	originalFile, err := ms.original.Open(filespec.Filename)
 
 	if err != nil {
-		return derp.Wrap(err, location, "Error opening original file", filespec)
+		return derp.Wrap(err, location, "Unable to open original file", filespec)
 	}
 
-	defer originalFile.Close()
+	defer func() {
+		if err := originalFile.Close(); err != nil {
+			derp.Report(derp.Wrap(err, location, "Unable to close orignial file", filespec.Filename))
+		}
+	}()
 
 	// If the original is not a media file (and can't be processed by FFmpeg)
 	// then just copy it directly from the original source
 	if !isFFmpegMediaType(filespec.OriginalMimeCategory()) {
 
 		if _, err := io.Copy(output, originalFile); err != nil {
-			return derp.Wrap(err, location, "Error copying original file", filespec)
+			return derp.Wrap(err, location, "Unable to copy original file", filespec)
 		}
 
 		return nil
@@ -53,11 +57,15 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 	tempInputFilename, err := writeTempFile(originalFile, filespec.OriginalExtension)
 
 	if err != nil {
-		return derp.Wrap(err, location, "Error opening original file", filespec)
+		return derp.Wrap(err, location, "Unable to open original file", filespec)
 	}
 
 	log.Trace().Str("location", location).Str("tempOutputFilename", tempInputFilename).Msg("Created temp input file...")
-	defer os.Remove(tempInputFilename)
+	defer func() {
+		if err := os.Remove(tempInputFilename); err != nil {
+			derp.Report(derp.Wrap(err, location, "Unable to remove tempInputFile", tempInputFilename))
+		}
+	}()
 
 	// Create an empty file to write the output to.
 	// FFmpeg requies actual files (not output pipes) for certain kinds of outputs,
@@ -66,7 +74,12 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 	tempOutputFilename := getTempFilename(filespec.Extension)
 
 	log.Trace().Str("location", location).Str("tempOutputFilename", tempOutputFilename).Msg("Created temp output file..")
-	defer os.Remove(tempOutputFilename)
+
+	defer func() {
+		if err := os.Remove(tempOutputFilename); err != nil {
+			derp.Report(derp.Wrap(err, location, "Unable to remove tempOutputFile", tempOutputFilename))
+		}
+	}()
 
 	/////////////////////////////////////////////////////////
 	// Now, let's assemble the FFmpeg command line arguments
@@ -100,7 +113,11 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 				add("-metadata:s:v", "title=Album Cover")     // Label the image so that readers will recognize it
 				add("-metadata:s:v", "comment=Cover (front)") // Label the image so that readers will recognize it
 
-				defer os.Remove(tempFilename)
+				defer func() {
+					if err := os.Remove(tempFilename); err != nil {
+						derp.Report(derp.Wrap(err, location, "Unable to remove temp file", tempFilename))
+					}
+				}()
 			}
 		}
 
@@ -130,21 +147,25 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 	ffmpeg.Stderr = &errors
 
 	if err := ffmpeg.Run(); err != nil {
-		return derp.Wrap(err, location, "Error running FFmpeg", errors.String(), args)
+		return derp.Wrap(err, location, "Unable to run FFmpeg", errors.String(), args)
 	}
 
 	// Open the output file so we can copy it to the response writer
 	outputFile, err := os.Open(tempOutputFilename)
 
 	if err != nil {
-		return derp.Wrap(err, location, "Error opening output file", tempOutputFilename)
+		return derp.Wrap(err, location, "Unable to open temp output file", tempOutputFilename)
 	}
 
-	defer outputFile.Close()
+	defer func() {
+		if err := outputFile.Close(); err != nil {
+			derp.Report(derp.Wrap(err, location, "Unable to close temp output file", tempOutputFilename))
+		}
+	}()
 
 	// Copy the output file to the output writer
 	if _, err := io.Copy(output, outputFile); err != nil {
-		return derp.Wrap(err, location, "Error copying working file to destination", tempOutputFilename)
+		return derp.Wrap(err, location, "Unable to copy working file to destination", tempOutputFilename)
 	}
 
 	return nil
@@ -164,7 +185,7 @@ func (ms *MediaServer) ensureProcessedFileExists(filespec FileSpec) error {
 
 	// Guarantee that a folder exists to put the processed file into
 	if err := ensureAferoFolderExists(ms.processed, filespec.ProcessedDir()); err != nil {
-		return derp.Wrap(err, location, "Error creating cache folder", filespec)
+		return derp.Wrap(err, location, "Unable to create cache folder", filespec)
 	}
 
 	// Create a new processed file and write the processed file into the cache
@@ -172,15 +193,19 @@ func (ms *MediaServer) ensureProcessedFileExists(filespec FileSpec) error {
 	cachedFile, err := ms.processed.Create(filespec.ProcessedPath())
 
 	if err != nil {
-		return derp.Wrap(err, location, "Error creating file in mediaserver cache", filespec)
+		return derp.Wrap(err, location, "Unable to create file in mediaserver cache", filespec)
 	}
 
-	defer cachedFile.Close()
+	defer func() {
+		if err := cachedFile.Close(); err != nil {
+			derp.Report(derp.Wrap(err, location, "Unable to close cached file", filespec))
+		}
+	}()
 
 	// Process the file into the cache.  Write it fully, before returning it to the caller.
 	if err := ms.Process(filespec, cachedFile); err != nil {
 		derp.Report(ms.processed.Remove(cachedFile.Name()))
-		return derp.Wrap(err, location, "Error processing original file", filespec)
+		return derp.Wrap(err, location, "Unable to process original file", filespec)
 	}
 
 	// Great success.

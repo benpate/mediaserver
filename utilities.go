@@ -82,14 +82,18 @@ func writeTempFile(original io.Reader, extension string) (string, error) {
 	tempFile, err := os.CreateTemp("", "mediaserver-*"+extension)
 
 	if err != nil {
-		return "", derp.Wrap(err, location, "Error creating temporary file")
+		return "", derp.Wrap(err, location, "Unable to create temporary file")
 	}
 
-	defer tempFile.Close()
+	defer func() {
+		if err := tempFile.Close(); err != nil {
+			derp.Report(derp.Wrap(err, location, "Unable to close temporary file", tempFile.Name()))
+		}
+	}()
 
 	// Copy the original file into the temporary file
 	if _, err := io.Copy(tempFile, original); err != nil {
-		return "", derp.Wrap(err, location, "Error copying original file to temporary file")
+		return "", derp.Wrap(err, location, "Unable to copy original file to temporary file")
 	}
 
 	// Return the name of the temporary file to the caller
@@ -103,14 +107,14 @@ func ensureAferoFolderExists(fs afero.Fs, path string) error {
 
 	// If the folder exists, then we're done.
 	if folderExists, err := afero.DirExists(fs, path); err != nil {
-		return derp.Wrap(err, location, "Error checking for directory", path)
+		return derp.Wrap(err, location, "Unable to check for directory", path)
 	} else if folderExists {
 		return nil
 	}
 
 	// Otherwise, create the folder in Afero
 	if err := fs.Mkdir(path, 0777); err != nil {
-		return derp.Wrap(err, location, "Error creating directory for cached file", path)
+		return derp.Wrap(err, location, "Unable to create directory for cached file", path)
 	}
 
 	// Success

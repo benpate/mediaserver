@@ -15,13 +15,17 @@ func (ms MediaServer) Put(filename string, file io.Reader) error {
 	destination, err := ms.original.Create(filename)
 
 	if err != nil {
-		return derp.Wrap(err, location, "Error creating media file in 'original' filesystem", filename)
+		return derp.Wrap(err, location, "Unable to create media file in 'original' filesystem", filename)
 	}
 
 	// Save the upload into the destination
 	if _, err = io.Copy(destination, file); err != nil {
-		destination.Close()
-		return derp.Wrap(err, location, "Error writing media file in 'original' filesystem", filename)
+
+		if closeErr := destination.Close(); closeErr != nil {
+			return derp.Wrap(err, location, "Unable to close destination file on err.", closeErr)
+		}
+
+		return derp.Wrap(err, location, "Unable to write media file in 'original' filesystem", filename)
 	}
 
 	// NOTE: This process used to upload to a temporary file first, then rename it
@@ -29,6 +33,8 @@ func (ms MediaServer) Put(filename string, file io.Reader) error {
 	// operation is not atomic.
 
 	// Finish the transaction.
-	destination.Close()
+	if err := destination.Close(); err != nil {
+		return derp.Wrap(err, location, "Unable to close destination file", filename)
+	}
 	return nil
 }
