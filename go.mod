@@ -6,7 +6,7 @@ toolchain go1.24.1
 
 require (
 	github.com/benpate/derp v0.34.0
-	github.com/benpate/rosetta v0.25.20
+	github.com/benpate/rosetta v0.25.21
 	github.com/maypok86/otter v1.2.4
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/afero v1.15.0
@@ -15,7 +15,7 @@ require (
 
 require (
 	github.com/aymerick/douceur v0.2.0 // indirect
-	github.com/benpate/exp v0.8.6 // indirect
+	github.com/benpate/exp v0.8.7 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dolthub/maphash v0.1.0 // indirect
 	github.com/gammazero/deque v1.1.0 // indirect
