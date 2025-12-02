@@ -55,6 +55,37 @@ func (ms MediaServer) Serve(responseWriter http.ResponseWriter, request *http.Re
 	return nil
 }
 
+// ServeOriginal returns the original, unprocessed file that was added to the mediaserver
+func (ms MediaServer) ServeOriginal(responseWriter http.ResponseWriter, request *http.Request, filename string) error {
+
+	const location = "mediaserver.Serve"
+
+	// Load the original file
+	originalFile, err := ms.original.Open(filename)
+
+	if err != nil {
+		return derp.Wrap(err, location, "Unable to open working file", filename)
+	}
+
+	defer func() {
+		if err := originalFile.Close(); err != nil {
+			derp.Report(derp.Wrap(err, location, "Unable to close working file", filename))
+		}
+	}()
+
+	// Serve the working file
+	fileInfo, err := originalFile.Stat()
+
+	if err != nil {
+		return derp.Wrap(err, location, "Unable to get stats for working file", filename)
+	}
+
+	http.ServeContent(responseWriter, request, filename, fileInfo.ModTime(), originalFile)
+
+	// Content (should be) served.
+	return nil
+}
+
 func (ms MediaServer) esureWorkingFileExists(filespec FileSpec) error {
 
 	const location = "mediaserver.ensureWorkingFile"
