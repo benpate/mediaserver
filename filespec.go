@@ -138,12 +138,13 @@ func (filespec *FileSpec) ffmpegArguments() []string {
 
 	case "image":
 
-		// Determine new image dimensions
-		width := convert.String(first(filespec.CacheWidth(), -1))
-		height := convert.String(first(filespec.CacheHeight(), -1))
 		filters := make([]string, 0)
 
 		if filespec.Resize() {
+
+			// Determine new image dimensions
+			width := convert.String(first(filespec.CacheWidth(), -1))
+			height := convert.String(first(filespec.CacheHeight(), -1))
 
 			if filespec.Width == filespec.Height {
 				filters = append(filters, "crop='min(iw,ih)':'min(iw,ih)'")

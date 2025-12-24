@@ -23,9 +23,7 @@ brew install homebrew-ffmpeg/ffmpeg/ffmpeg --with-fdk-aac --with-webp
 func init() {
 
 	// Check to see if ffmpeg is installed
-	_, err := exec.LookPath("ffmpeg")
-
-	if err == nil {
+	if _, err := exec.LookPath("ffmpeg"); err == nil {
 		IsInstalled = true
 	}
 }
