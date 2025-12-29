@@ -21,6 +21,8 @@ type WorkingDirectory struct {
 // NewWorkingDirectory returns a fully initialized WorkingDirectory object
 func NewWorkingDirectory(folder string, ttl time.Duration, capacity int) WorkingDirectory {
 
+	const location = "mediaserver.NewWorkingDirectory"
+
 	if folder == "" {
 		folder = os.TempDir()
 	}
@@ -46,7 +48,7 @@ func NewWorkingDirectory(folder string, ttl time.Duration, capacity int) Working
 	cache, err := builder.Build()
 
 	if err != nil {
-		derp.Report(derp.Wrap(err, "mediaserver.NewWorkingDirectory", "Error building cache"))
+		derp.Report(derp.Wrap(err, location, "Unable to build Otter cache"))
 	}
 
 	// Add the cache into the result and return
@@ -171,7 +173,7 @@ func (wd *WorkingDirectory) onDelete(key string, value int64, cause otter.Deleti
 
 	// Delete the file from the filesystem
 	if err := os.Remove(wd.filename(key)); err != nil {
-		derp.Report(derp.Wrap(err, "mediaserver.WorkingDirectory.onDelete", "Error deleting file", key, cause))
+		derp.Report(derp.Wrap(err, "mediaserver.WorkingDirectory.onDelete", "Unable to delete file", key, cause))
 	}
 }
 
