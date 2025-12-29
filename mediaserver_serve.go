@@ -1,6 +1,7 @@
 package mediaserver
 
 import (
+	"io"
 	"net/http"
 
 	"github.com/benpate/derp"
@@ -73,16 +74,16 @@ func (ms MediaServer) ServeOriginal(responseWriter http.ResponseWriter, request 
 		}
 	}()
 
-	// Serve the working file
-	fileInfo, err := originalFile.Stat()
+	// Write the HTTP response
+	responseWriter.Header().Set("Content-Type", "application/octet-stream")
+	responseWriter.WriteHeader(http.StatusOK)
 
-	if err != nil {
-		return derp.Wrap(err, location, "Unable to get stats for working file", filename)
+	// Copy the original file directly to the response. We don't need any fancy processing.
+	if _, err := io.Copy(responseWriter, originalFile); err != nil {
+		return derp.Wrap(err, location, "Unable to copy original file to response", filename)
 	}
 
-	http.ServeContent(responseWriter, request, filename, fileInfo.ModTime(), originalFile)
-
-	// Content (should be) served.
+	// You got served.
 	return nil
 }
 
