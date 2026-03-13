@@ -47,7 +47,7 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 
 	// Confirm that FFmpeg is installed
 	if !ffmpeg.IsInstalled {
-		return derp.InternalError(location, "FFmpeg is not installed on this server")
+		return derp.Internal(location, "FFmpeg is not installed on this server")
 	}
 
 	// Copy the original file into a temporary file.
