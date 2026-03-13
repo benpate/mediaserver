@@ -98,6 +98,17 @@ func (filespec *FileSpec) writeFilenameArgs(buffer *strings.Builder) {
 		if filespec.Bitrate != 0 {
 			buffer.WriteString("_b" + convert.String(filespec.Bitrate))
 		}
+
+	case "video":
+		if filespec.Width != 0 {
+			buffer.WriteString("_w" + convert.String(filespec.Width))
+		}
+		if filespec.Height != 0 {
+			buffer.WriteString("_h" + convert.String(filespec.Height))
+		}
+		if filespec.Bitrate != 0 {
+			buffer.WriteString("_b" + convert.String(filespec.Bitrate))
+		}
 	}
 }
 
@@ -212,6 +223,32 @@ func (filespec *FileSpec) ffmpegArguments() []string {
 
 	case "video":
 
+		switch filespec.Extension {
+
+		case ".mp4":
+			filespec.Extension = ".mp4"
+			result = append(result, "-c:v", "libx264")
+			result = append(result, "-movflags", "+faststart")
+			result = append(result, "-f", "mp4")
+
+		case ".webm":
+			filespec.Extension = ".webm"
+			result = append(result, "-c:v", "libx264")
+			result = append(result, "-movflags", "+faststart")
+			result = append(result, "-f", "webm")
+
+		case ".ogg":
+			filespec.Extension = ".ogg"
+			result = append(result, "-c:v", "libx264")
+			result = append(result, "-movflags", "+faststart")
+			result = append(result, "-f", "ogg")
+
+		default:
+			filespec.Extension = ".mp4"
+			result = append(result, "-c:v", "libx264")
+			result = append(result, "-movflags", "+faststart")
+			result = append(result, "-f", "mp4")
+		}
 	}
 
 	return result
