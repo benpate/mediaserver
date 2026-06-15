@@ -53,7 +53,7 @@ func requireWorkingFFmpeg(t *testing.T) {
 // newTestServer returns a MediaServer backed by in-memory "original" and
 // "processed" filesystems and a working directory in a temporary folder. The
 // working directory is closed automatically when the test finishes.
-func newTestServer(t *testing.T, original afero.Fs) MediaServer {
+func newTestServer(t *testing.T, original afero.Fs, opts ...Option) MediaServer {
 	t.Helper()
 
 	if original == nil {
@@ -64,7 +64,7 @@ func newTestServer(t *testing.T, original afero.Fs) MediaServer {
 	working := NewWorkingDirectory(t.TempDir(), time.Minute, 100)
 	t.Cleanup(working.Close)
 
-	return New(original, processed, &working)
+	return New(original, processed, &working, opts...)
 }
 
 // makePNG returns the bytes of a valid solid-color PNG of the given dimensions.

@@ -3,26 +3,44 @@ package mediaserver
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 
 	"github.com/benpate/derp"
 	"github.com/benpate/mediaserver/ffmpeg"
+	"github.com/benpate/remote"
 	"github.com/spf13/afero"
 )
 
-// getCoverPhoto loads an image from a URL, processes it into a
-// reasonable size for an album cover photo, then returns the filename
-// of the resulting file (in the temp directory).
-// It is the caller's responsibility to delete the file when it is no longer needed.
-func getCoverPhoto(ctx context.Context, url string) (string, error) {
+// getCoverPhoto fetches a remote cover image, processes it into a reasonable
+// size for an album cover photo, then returns the filename of the resulting
+// file (in the temp directory). The remote image is downloaded by Go (not
+// FFmpeg) through an SSRF-hardened client, so FFmpeg only ever reads a local
+// file. It is the caller's responsibility to delete the file when it is no
+// longer needed.
+func (ms MediaServer) getCoverPhoto(ctx context.Context, rawURL string) (string, error) {
 
 	const location = "mediaserver.getCoverPhoto"
 
 	if !ffmpeg.IsInstalled {
-		return "", derp.Internal("mediaserver.GetCoverPhoto", "FFmpeg is not installed on this server")
+		return "", derp.Internal(location, "FFmpeg is not installed on this server")
 	}
+
+	// Download the (untrusted) cover image to a local temp file.
+	sourceFilename, err := ms.fetchCover(ctx, rawURL)
+
+	if err != nil {
+		return "", derp.Wrap(err, location, "Unable to fetch cover image", rawURL)
+	}
+
+	defer func() {
+		if err := os.Remove(sourceFilename); err != nil {
+			derp.Report(derp.Wrap(err, location, "Unable to remove temp cover source", sourceFilename))
+		}
+	}()
 
 	tempFilename, err := getTempFilename(".jpg")
 
@@ -30,45 +48,87 @@ func getCoverPhoto(ctx context.Context, url string) (string, error) {
 		return "", derp.Wrap(err, location, "Unable to create temp file")
 	}
 
-	// Set up arguments slice to be passed into FFmpeg...
-	args := make([]string, 0)
-	var errors bytes.Buffer
+	var stderr bytes.Buffer
 
-	// ... with some sugar to append values to arguments list
-	add := func(values ...string) {
-		args = append(args, values...)
-	}
+	// FFmpeg reads only the local downloaded file; "-protocol_whitelist file"
+	// prevents a malicious image (e.g. a disguised playlist) from reaching out
+	// to other protocols.
+	cmd := exec.CommandContext(ctx, "ffmpeg",
+		"-y",
+		"-protocol_whitelist", "file",
+		"-i", sourceFilename,
+		"-vf", "crop='min(iw,ih)':'min(iw,ih)', scale='min(300,iw)':'min(300,ih)'",
+		"-q:v", "4",
+		tempFilename,
+	)
+	cmd.Stderr = &stderr
 
-	// overwrite the (pre-created) temp output file without prompting
-	add("-y")
-
-	// input from the URL
-	add("-i", url)
-
-	// crop and scale to 300x300
-	add("-vf", "crop='min(iw,ih)':'min(iw,ih)', scale='min(300,iw)':'min(300,ih)'")
-
-	// quality level 4 =>
-	add("-q:v", "4")
-
-	// output to temp file
-	add(tempFilename)
-
-	// Execute FFmpeg
-	ffmpeg := exec.CommandContext(ctx, "ffmpeg", args...)
-	ffmpeg.Stderr = &errors
-
-	if err := ffmpeg.Run(); err != nil {
+	if err := cmd.Run(); err != nil {
 
 		if errRemove := os.Remove(tempFilename); errRemove != nil {
-			return "", derp.Wrap(err, location, "Error returned by FFmpeg", errors.String(), args, errRemove)
+			return "", derp.Wrap(err, location, "Error returned by FFmpeg", stderr.String(), errRemove)
 		}
 
-		return "", derp.Wrap(err, location, "Error returned by FFmpeg", errors.String(), args)
+		return "", derp.Wrap(err, location, "Error returned by FFmpeg", stderr.String())
 	}
 
 	// Return success.
 	return tempFilename, nil
+}
+
+// maxCoverBytes caps how many bytes are read from a remote cover image, to
+// prevent an untrusted server from forcing an unbounded download.
+const maxCoverBytes = 16 << 20 // 16 MB
+
+// fetchCover downloads a remote cover image to a local temp file using the
+// SSRF-hardened remote client. Only http/https URLs are permitted; the
+// configured host allow-list and private-IP policy are enforced by the client,
+// and the download is size-limited.
+func (ms MediaServer) fetchCover(ctx context.Context, rawURL string) (string, error) {
+
+	const location = "mediaserver.fetchCover"
+
+	parsed, err := url.Parse(rawURL)
+
+	if err != nil {
+		return "", derp.BadRequest(location, "Invalid cover URL", rawURL)
+	}
+
+	if (parsed.Scheme != "http") && (parsed.Scheme != "https") {
+		return "", derp.Forbidden(location, "Cover URL must use http or https", rawURL)
+	}
+
+	// Create a local temp file to download the (untrusted) image into.
+	tempFile, err := os.CreateTemp("", "mediaserver-*.cover")
+
+	if err != nil {
+		return "", derp.Wrap(err, location, "Unable to create temp file")
+	}
+
+	// Download through the SSRF-hardened client: non-public IPs are blocked
+	// (unless allowed), the host allow-list is enforced, and the body is
+	// size-capped. The response is written straight into the temp file.
+	err = remote.Get(rawURL).
+		WithContext(ctx).
+		AllowHosts(ms.options.allowedHosts...).
+		AllowPrivateIPs(ms.options.allowPrivateIPs).
+		MaxResponseSize(maxCoverBytes).
+		Result(tempFile).
+		Send()
+
+	// Always close the temp file, folding any close error in with the download error.
+	err = errors.Join(err, tempFile.Close())
+
+	if err != nil {
+
+		if errRemove := os.Remove(tempFile.Name()); errRemove != nil {
+			derp.Report(derp.Wrap(errRemove, location, "Unable to remove temp file", tempFile.Name()))
+		}
+
+		return "", derp.Wrap(err, location, "Unable to fetch cover image", rawURL)
+	}
+
+	return tempFile.Name(), nil
 }
 
 // getTempFilename atomically creates an empty temporary file and returns its

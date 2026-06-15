@@ -16,11 +16,11 @@ import (
 
 // Process decodes an image file and applies all of the processing steps requested in the FileSpec.
 // The FFmpeg run is bounded by ctx; if ctx has no deadline, a default timeout is applied.
-func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.Writer, opts ...Option) error {
+func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.Writer) error {
 
 	const location = "mediaserver.Process"
 
-	ctx, cancel := newOptions(opts...).withTimeout(ctx)
+	ctx, cancel := ms.options.withTimeout(ctx)
 	defer cancel()
 
 	// Open the original file from the afero filesystem
@@ -114,7 +114,7 @@ func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.
 		// Special case for music cover art
 		if cover := filespec.Metadata["cover"]; cover != "" {
 
-			if tempFilename, err := getCoverPhoto(ctx, cover); err != nil {
+			if tempFilename, err := ms.getCoverPhoto(ctx, cover); err != nil {
 				derp.Report(derp.Wrap(err, location, "Error getting cover photo", cover))
 
 			} else {
@@ -184,7 +184,7 @@ func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.
 }
 
 // ensureProcessedFileExists writes a new processed version of the file into the cache
-func (ms *MediaServer) ensureProcessedFileExists(ctx context.Context, filespec FileSpec, opts ...Option) error {
+func (ms *MediaServer) ensureProcessedFileExists(ctx context.Context, filespec FileSpec) error {
 
 	const location = "mediaserver.ensureProcessedFileExists"
 
@@ -215,7 +215,7 @@ func (ms *MediaServer) ensureProcessedFileExists(ctx context.Context, filespec F
 	}()
 
 	// Process the file into the cache.  Write it fully, before returning it to the caller.
-	if err := ms.Process(ctx, filespec, cachedFile, opts...); err != nil {
+	if err := ms.Process(ctx, filespec, cachedFile); err != nil {
 		derp.Report(ms.processed.Remove(cachedFile.Name()))
 		return derp.Wrap(err, location, "Unable to process original file", filespec)
 	}

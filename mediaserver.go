@@ -11,14 +11,16 @@ type MediaServer struct {
 	original  afero.Fs          // Directory for original source files
 	processed afero.Fs          // Directory for files that have been processed (may be deleted)
 	working   *WorkingDirectory // Directory for temporary/working files
+	options   options           // Resolved configuration
 }
 
-// New returns a fully initialized MediaServer
-func New(original afero.Fs, processed afero.Fs, working *WorkingDirectory) MediaServer {
+// New returns a fully initialized MediaServer.
+func New(original afero.Fs, processed afero.Fs, working *WorkingDirectory, opts ...Option) MediaServer {
 
 	return MediaServer{
 		original:  original,
 		processed: processed,
 		working:   working,
+		options:   newOptions(opts...),
 	}
 }

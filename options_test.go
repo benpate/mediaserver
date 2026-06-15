@@ -12,6 +12,20 @@ func TestNewOptions_Defaults(t *testing.T) {
 	require.Equal(t, defaultTimeout, newOptions().timeout)
 }
 
+func TestWithAllowedHosts(t *testing.T) {
+	// The option records the hosts (lower-cased) for the remote client to enforce.
+	o := newOptions(WithAllowedHosts("CDN.Example.com", "images.example.NET"))
+	require.Equal(t, []string{"cdn.example.com", "images.example.net"}, o.allowedHosts)
+}
+
+func TestWithAllowPrivateIPs(t *testing.T) {
+	// The default is secure: private IPs are blocked.
+	require.False(t, newOptions().allowPrivateIPs)
+
+	// The option opts in to allowing them.
+	require.True(t, newOptions(WithAllowPrivateIPs(true)).allowPrivateIPs)
+}
+
 func TestNewOptions_AppliesOverrides(t *testing.T) {
 	// The apply loop runs each Option against the defaults.
 	applied := false

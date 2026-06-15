@@ -112,7 +112,8 @@ func TestGetCoverPhoto_FFmpegNotInstalled(t *testing.T) {
 	ffmpeg.IsInstalled = false
 	t.Cleanup(func() { ffmpeg.IsInstalled = original })
 
-	_, err := getCoverPhoto(context.Background(), "http://example.com/cover.jpg")
+	ms := newTestServer(t, nil)
+	_, err := ms.getCoverPhoto(context.Background(), "http://example.com/cover.jpg")
 	require.Error(t, err)
 }
 

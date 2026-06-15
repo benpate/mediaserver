@@ -12,14 +12,14 @@ import (
 // If the filespec.Cache is set to FALSE, then file will be processed and returned.
 // If the filespec.Cache is set to TRUE, then the processed file will retrieved
 // from the cache (if possible) and the processed file will be stored in the cache.
-func (ms MediaServer) Serve(responseWriter http.ResponseWriter, request *http.Request, filespec FileSpec, opts ...Option) error {
+func (ms MediaServer) Serve(responseWriter http.ResponseWriter, request *http.Request, filespec FileSpec) error {
 
 	const location = "mediaserver.Serve"
 
 	workingFilename := filespec.WorkingFilename()
 
 	// Guarantee that we have a working file to serve, bounded by the request's context
-	if err := ms.esureWorkingFileExists(request.Context(), filespec, opts...); err != nil {
+	if err := ms.esureWorkingFileExists(request.Context(), filespec); err != nil {
 		return derp.Wrap(err, location, "Unable to ensure working file exists", filespec)
 	}
 
@@ -88,7 +88,7 @@ func (ms MediaServer) ServeOriginal(responseWriter http.ResponseWriter, request 
 	return nil
 }
 
-func (ms MediaServer) esureWorkingFileExists(ctx context.Context, filespec FileSpec, opts ...Option) error {
+func (ms MediaServer) esureWorkingFileExists(ctx context.Context, filespec FileSpec) error {
 
 	const location = "mediaserver.ensureWorkingFile"
 
@@ -100,7 +100,7 @@ func (ms MediaServer) esureWorkingFileExists(ctx context.Context, filespec FileS
 	}
 
 	// Guarantee that we have a processed file to work with
-	if err := ms.ensureProcessedFileExists(ctx, filespec, opts...); err != nil {
+	if err := ms.ensureProcessedFileExists(ctx, filespec); err != nil {
 		return derp.Wrap(err, location, "Unable to ensure processed file exists", filespec)
 	}
 
