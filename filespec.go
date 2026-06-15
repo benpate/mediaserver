@@ -246,7 +246,7 @@ func (filespec *FileSpec) ffmpegArguments() []string {
 			result = append(result, "-movflags", "+faststart")
 			result = append(result, "-f", "ogg")
 
-		// All other video extension are rewritten to use the H.264/MP4 default.
+		// All other video extensions are rewritten to use the H.264/MP4 default.
 		default:
 			filespec.Extension = ".mp4"
 			result = append(result, "-c:v", "libx264")

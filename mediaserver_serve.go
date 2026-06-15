@@ -9,8 +9,8 @@ import (
 )
 
 // Serve locates the file, processes it if necessary, and returns it to the caller.
-// If the filespec.Cache is set to FALSE, then file will be processed and returned.
-// If the filespec.Cache is set to TRUE, then the processed file will retrieved
+// If the filespec.Cache is set to FALSE, then the file will be processed and returned.
+// If the filespec.Cache is set to TRUE, then the processed file will be retrieved
 // from the cache (if possible) and the processed file will be stored in the cache.
 func (ms MediaServer) Serve(responseWriter http.ResponseWriter, request *http.Request, filespec FileSpec) error {
 
@@ -30,11 +30,7 @@ func (ms MediaServer) Serve(responseWriter http.ResponseWriter, request *http.Re
 		return derp.Wrap(err, location, "Unable to open working file", workingFilename)
 	}
 
-	defer func() {
-		if err := workingFile.Close(); err != nil {
-			derp.Report(derp.Wrap(err, location, "Unable to close working file", workingFilename))
-		}
-	}()
+	defer derp.ReportFunc(workingFile.Close)
 
 	// Populate header values
 	header := responseWriter.Header()
@@ -69,11 +65,7 @@ func (ms MediaServer) ServeOriginal(responseWriter http.ResponseWriter, _ *http.
 		return derp.Wrap(err, location, "Unable to open working file", filename)
 	}
 
-	defer func() {
-		if err := originalFile.Close(); err != nil {
-			derp.Report(derp.Wrap(err, location, "Unable to close working file", filename))
-		}
-	}()
+	defer derp.ReportFunc(originalFile.Close)
 
 	// Write the HTTP response
 	responseWriter.Header().Set("Content-Type", "application/octet-stream")

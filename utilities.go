@@ -150,7 +150,7 @@ func getTempFilename(extension string) (string, error) {
 	return name, nil
 }
 
-// writeTempFile writes a file to a temporary location on the local filesystem, using the provided extension
+// writeTempFile writes a file to a temporary location on the local filesystem, using the provided extension.
 // It is the caller's responsibility to delete the file when it is no longer needed.
 func writeTempFile(original io.Reader, extension string) (string, error) {
 
@@ -163,11 +163,7 @@ func writeTempFile(original io.Reader, extension string) (string, error) {
 		return "", derp.Wrap(err, location, "Unable to create temporary file")
 	}
 
-	defer func() {
-		if err := tempFile.Close(); err != nil {
-			derp.Report(derp.Wrap(err, location, "Unable to close temporary file", tempFile.Name()))
-		}
-	}()
+	defer derp.ReportFunc(tempFile.Close)
 
 	// Copy the original file into the temporary file
 	if _, err := io.Copy(tempFile, original); err != nil {

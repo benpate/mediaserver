@@ -34,11 +34,7 @@ func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.
 		return derp.Wrap(err, location, "Unable to open original file", filespec)
 	}
 
-	defer func() {
-		if err := originalFile.Close(); err != nil {
-			derp.Report(derp.Wrap(err, location, "Unable to close original file", filespec.Filename))
-		}
-	}()
+	defer derp.ReportFunc(originalFile.Close)
 
 	// If the original is not a media file (and can't be processed by FFmpeg)
 	// then just copy it directly from the original source.
@@ -106,11 +102,7 @@ func (ms MediaServer) processMedia(ctx context.Context, filespec FileSpec, origi
 		return derp.Wrap(err, location, "Unable to open temp output file", tempOutputFilename)
 	}
 
-	defer func() {
-		if err := outputFile.Close(); err != nil {
-			derp.Report(derp.Wrap(err, location, "Unable to close temp output file", tempOutputFilename))
-		}
-	}()
+	defer derp.ReportFunc(outputFile.Close)
 
 	if _, err := io.Copy(output, outputFile); err != nil {
 		return derp.Wrap(err, location, "Unable to copy output to destination", tempOutputFilename)
