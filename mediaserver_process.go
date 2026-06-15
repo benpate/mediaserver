@@ -1,11 +1,9 @@
 package mediaserver
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/benpate/derp"
@@ -14,8 +12,9 @@ import (
 	"github.com/spf13/afero"
 )
 
-// Process decodes an image file and applies all of the processing steps requested in the FileSpec.
-// The FFmpeg run is bounded by ctx; if ctx has no deadline, a default timeout is applied.
+// Process decodes a media file and applies the processing steps in the FileSpec,
+// writing the result to output. The work is bounded by ctx; if ctx has no
+// deadline, a default timeout is applied.
 func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.Writer) error {
 
 	const location = "mediaserver.Process"
@@ -37,7 +36,7 @@ func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.
 	}()
 
 	// If the original is not a media file (and can't be processed by FFmpeg)
-	// then just copy it directly from the original source
+	// then just copy it directly from the original source.
 	if !isFFmpegMediaType(filespec.OriginalMimeCategory()) {
 
 		if _, err := io.Copy(output, originalFile); err != nil {
@@ -47,123 +46,55 @@ func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.
 		return nil
 	}
 
-	// Fall through means this is an Audio/Video/Image file
-	// that CAN be processed by FFmpeg
-
-	// Confirm that FFmpeg is installed
+	// Otherwise this is an Audio/Video/Image file that FFmpeg can process.
 	if !ffmpeg.IsInstalled {
 		return derp.Internal(location, "FFmpeg is not installed on this server")
 	}
 
-	// Copy the original file into a temporary file.
-	// FFmpeg requires actual files (not input pipes) for certain kinds of inputs,
-	// for instance, when it needs to seek to the end of a media file to access metadata.
-	// This file will be deleted automatically when the function exits.
+	if err := ms.processMedia(ctx, filespec, originalFile, output); err != nil {
+		return derp.Wrap(err, location, "Unable to process media file", filespec)
+	}
+
+	return nil
+}
+
+// processMedia runs the FFmpeg pipeline for a media file: it stages the original
+// as a local temp file, transcodes it (per the FileSpec) into a temp output
+// file, and copies the result to output. FFmpeg needs real files — not pipes —
+// so it can seek to read and write metadata.
+func (ms MediaServer) processMedia(ctx context.Context, filespec FileSpec, originalFile io.Reader, output io.Writer) error {
+
+	const location = "mediaserver.processMedia"
+
+	// Stage the original as a local temp input file (removed on exit).
 	tempInputFilename, err := writeTempFile(originalFile, filespec.OriginalExtension)
 
 	if err != nil {
-		return derp.Wrap(err, location, "Unable to open original file", filespec)
+		return derp.Wrap(err, location, "Unable to stage input file", filespec)
 	}
 
-	log.Trace().Str("location", location).Str("tempOutputFilename", tempInputFilename).Msg("Created temp input file...")
-	defer func() {
-		if err := os.Remove(tempInputFilename); err != nil {
-			derp.Report(derp.Wrap(err, location, "Unable to remove tempInputFile", tempInputFilename))
-		}
-	}()
+	defer removeTempFile(tempInputFilename, location)
 
-	// Create an empty file to write the output to.
-	// FFmpeg requires actual files (not output pipes) for certain kinds of outputs,
-	// for instance, when it needs to seek to the beginning of a media file to write metadata.
-	// This file will be deleted automatically when the function exits.
+	// Create the (empty) temp output file that FFmpeg will write into (removed on exit).
 	tempOutputFilename, err := getTempFilename(filespec.Extension)
 
 	if err != nil {
 		return derp.Wrap(err, location, "Unable to create temp output file", filespec)
 	}
 
-	log.Trace().Str("location", location).Str("tempOutputFilename", tempOutputFilename).Msg("Created temp output file..")
+	defer removeTempFile(tempOutputFilename, location)
 
-	defer func() {
-		if err := os.Remove(tempOutputFilename); err != nil {
-			derp.Report(derp.Wrap(err, location, "Unable to remove tempOutputFile", tempOutputFilename))
-		}
-	}()
+	// Assemble the FFmpeg arguments (downloading cover art if requested) and run.
+	args, cleanup := ms.processArguments(ctx, filespec, tempInputFilename, tempOutputFilename)
+	defer cleanup()
 
-	/////////////////////////////////////////////////////////
-	// Now, let's assemble the FFmpeg command line arguments
-	/////////////////////////////////////////////////////////
-
-	// Set up arguments slice to be passed into FFmpeg...
-	args := make([]string, 0)
-
-	// ... with some sugar to append values to arguments list
-	add := func(values ...string) {
-		args = append(args, values...)
-	}
-
-	// overwrite the (pre-created) temp output file without prompting
-	add("-y")
-
-	// input #0 is the original file (now in the temp directory)
-	add("-i", tempInputFilename)
-
-	// Handle Media metadata (if present)
-	if len(filespec.Metadata) > 0 {
-
-		// Special case for music cover art
-		if cover := filespec.Metadata["cover"]; cover != "" {
-
-			if tempFilename, err := ms.getCoverPhoto(ctx, cover); err != nil {
-				derp.Report(derp.Wrap(err, location, "Error getting cover photo", cover))
-
-			} else {
-				add("-i", tempFilename)                       // read the cover art from a file
-				add("-map", "0:a")                            // Map audio into the output file
-				add("-map", "1:v")                            // Map cover art into the output file
-				add("-c:v", "copy")                           // Use JPEG codec for the cover art
-				add("-metadata:s:v", "title=Album Cover")     // Label the image so that readers will recognize it
-				add("-metadata:s:v", "comment=Cover (front)") // Label the image so that readers will recognize it
-
-				defer func() {
-					if err := os.Remove(tempFilename); err != nil {
-						derp.Report(derp.Wrap(err, location, "Unable to remove temp file", tempFilename))
-					}
-				}()
-			}
-		}
-
-		// Add all other metadata fields
-		for key, value := range filespec.Metadata {
-			if key != "cover" {
-				value = strings.ReplaceAll(value, "\n", `\n`)
-				add("-metadata", key+`="`+value+`"`)
-			}
-		}
-	}
-
-	// Add arguments from the filespec to format the result file
-	add(filespec.ffmpegArguments()...)
-
-	// output result to the temporary output location
-	add(tempOutputFilename)
-
-	// Ok.  here's the command we're actually going to execute
 	log.Trace().Str("location", location).Msg("Executing: ffmpeg " + strings.Join(args, " "))
 
-	// Execute FFmpeg command
-	var errors bytes.Buffer
-
-	// FFmpeg writes to tempOutputFilename, which is copied to output below; do not
-	// also wire Stdout to output, or stray stdout bytes would corrupt the result.
-	ffmpeg := exec.CommandContext(ctx, "ffmpeg", args...)
-	ffmpeg.Stderr = &errors
-
-	if err := ffmpeg.Run(); err != nil {
-		return derp.Wrap(err, location, "Unable to run FFmpeg", errors.String(), args)
+	if err := ffmpeg.Run(ctx, args...); err != nil {
+		return derp.Wrap(err, location, "Unable to run FFmpeg", filespec)
 	}
 
-	// Open the output file so we can copy it to the response writer
+	// Copy the finished output file to the destination writer.
 	outputFile, err := os.Open(tempOutputFilename)
 
 	if err != nil {
@@ -176,12 +107,66 @@ func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.
 		}
 	}()
 
-	// Copy the output file to the output writer
 	if _, err := io.Copy(output, outputFile); err != nil {
-		return derp.Wrap(err, location, "Unable to copy working file to destination", tempOutputFilename)
+		return derp.Wrap(err, location, "Unable to copy output to destination", tempOutputFilename)
 	}
 
 	return nil
+}
+
+// processArguments assembles the FFmpeg command-line arguments to transcode the
+// staged input file into the output file. When the FileSpec carries cover art,
+// the image is downloaded and added as a second input; the returned cleanup
+// removes that temp file (a no-op when there is no cover art) and must be called
+// by the caller.
+func (ms MediaServer) processArguments(ctx context.Context, filespec FileSpec, inputFilename string, outputFilename string) ([]string, func()) {
+
+	const location = "mediaserver.processArguments"
+
+	cleanup := func() {
+		// No-op by default; replaced below when cover art is downloaded.
+	}
+
+	// -y overwrites the pre-created temp output file; input #0 is the staged original.
+	args := []string{"-y", "-i", inputFilename}
+
+	if len(filespec.Metadata) > 0 {
+
+		// Special case for music cover art: download it and add it as input #1.
+		if cover := filespec.Metadata["cover"]; cover != "" {
+
+			if coverFilename, err := ms.getCoverPhoto(ctx, cover); err != nil {
+				// A missing or blocked cover is not fatal; log it and continue without art.
+				derp.Report(derp.Wrap(err, location, "Unable to get cover photo", cover))
+
+			} else {
+				args = append(args,
+					"-i", coverFilename, // read the cover art from a file
+					"-map", "0:a", // map audio into the output file
+					"-map", "1:v", // map cover art into the output file
+					"-c:v", "copy", // copy the cover art without re-encoding
+					"-metadata:s:v", "title=Album Cover", // label the image so readers recognize it
+					"-metadata:s:v", "comment=Cover (front)",
+				)
+
+				cleanup = func() { removeTempFile(coverFilename, location) }
+			}
+		}
+
+		// Add all other metadata fields.
+		for key, value := range filespec.Metadata {
+			if key != "cover" {
+				value = strings.ReplaceAll(value, "\n", `\n`)
+				args = append(args, "-metadata", key+`="`+value+`"`)
+			}
+		}
+	}
+
+	// Append the format/codec arguments from the FileSpec, then the output file.
+	args = append(args, filespec.ffmpegArguments()...)
+	args = append(args, outputFilename)
+
+	return args, cleanup
 }
 
 // ensureProcessedFileExists writes a new processed version of the file into the cache

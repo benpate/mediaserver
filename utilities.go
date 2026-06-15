@@ -1,13 +1,11 @@
 package mediaserver
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
 	"net/url"
 	"os"
-	"os/exec"
 
 	"github.com/benpate/derp"
 	"github.com/benpate/mediaserver/ffmpeg"
@@ -36,11 +34,7 @@ func (ms MediaServer) getCoverPhoto(ctx context.Context, rawURL string) (string,
 		return "", derp.Wrap(err, location, "Unable to fetch cover image", rawURL)
 	}
 
-	defer func() {
-		if err := os.Remove(sourceFilename); err != nil {
-			derp.Report(derp.Wrap(err, location, "Unable to remove temp cover source", sourceFilename))
-		}
-	}()
+	defer removeTempFile(sourceFilename, location)
 
 	tempFilename, err := getTempFilename(".jpg")
 
@@ -48,12 +42,10 @@ func (ms MediaServer) getCoverPhoto(ctx context.Context, rawURL string) (string,
 		return "", derp.Wrap(err, location, "Unable to create temp file")
 	}
 
-	var stderr bytes.Buffer
-
 	// FFmpeg reads only the local downloaded file; "-protocol_whitelist file"
 	// prevents a malicious image (e.g. a disguised playlist) from reaching out
 	// to other protocols.
-	cmd := exec.CommandContext(ctx, "ffmpeg",
+	err = ffmpeg.Run(ctx,
 		"-y",
 		"-protocol_whitelist", "file",
 		"-i", sourceFilename,
@@ -61,19 +53,22 @@ func (ms MediaServer) getCoverPhoto(ctx context.Context, rawURL string) (string,
 		"-q:v", "4",
 		tempFilename,
 	)
-	cmd.Stderr = &stderr
 
-	if err := cmd.Run(); err != nil {
-
-		if errRemove := os.Remove(tempFilename); errRemove != nil {
-			return "", derp.Wrap(err, location, "Error returned by FFmpeg", stderr.String(), errRemove)
-		}
-
-		return "", derp.Wrap(err, location, "Error returned by FFmpeg", stderr.String())
+	if err != nil {
+		removeTempFile(tempFilename, location)
+		return "", derp.Wrap(err, location, "Unable to process cover image", rawURL)
 	}
 
 	// Return success.
 	return tempFilename, nil
+}
+
+// removeTempFile deletes a temporary file, reporting (but not returning) any
+// error — a failed cleanup of a temp file should not abort the caller.
+func removeTempFile(filename string, location string) {
+	if err := os.Remove(filename); err != nil {
+		derp.Report(derp.Wrap(err, location, "Unable to remove temporary file", filename))
+	}
 }
 
 // maxCoverBytes caps how many bytes are read from a remote cover image, to
