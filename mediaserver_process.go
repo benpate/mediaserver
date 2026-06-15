@@ -154,8 +154,9 @@ func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.
 	// Execute FFmpeg command
 	var errors bytes.Buffer
 
+	// FFmpeg writes to tempOutputFilename, which is copied to output below; do not
+	// also wire Stdout to output, or stray stdout bytes would corrupt the result.
 	ffmpeg := exec.CommandContext(ctx, "ffmpeg", args...)
-	ffmpeg.Stdout = output
 	ffmpeg.Stderr = &errors
 
 	if err := ffmpeg.Run(); err != nil {
