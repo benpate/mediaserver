@@ -3,6 +3,8 @@ package mediaserver
 import (
 	"bytes"
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -76,4 +78,78 @@ func TestProcess_Image(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, ms.Process(context.Background(), filespec, &output))
 	require.NotEmpty(t, output.Bytes())
+}
+
+func TestProcessArguments(t *testing.T) {
+
+	ctx := context.Background()
+
+	t.Run("no metadata", func(t *testing.T) {
+		ms := newTestServer(t, nil)
+		args, cleanup := ms.processArguments(ctx, FileSpec{Extension: ".jpg"}, "in.jpg", "out.jpg")
+		t.Cleanup(cleanup)
+
+		require.Equal(t, []string{"-y", "-i", "in.jpg", "-c:v", "mjpeg", "out.jpg"}, args)
+	})
+
+	t.Run("non-cover metadata uses key=value with no quotes", func(t *testing.T) {
+		ms := newTestServer(t, nil)
+		filespec := NewFileSpec()
+		filespec.Extension = ".jpg"
+		filespec.Metadata["artist"] = "Beatles"
+		filespec.Metadata["comment"] = "line1\nline2"
+
+		args, cleanup := ms.processArguments(ctx, filespec, "in.jpg", "out.jpg")
+		t.Cleanup(cleanup)
+
+		// Values are passed verbatim as key=value (NOT shell-quoted), and embedded
+		// newlines are flattened so they cannot break ffmpeg's metadata parsing.
+		require.Contains(t, args, "artist=Beatles")
+		require.NotContains(t, args, `artist="Beatles"`)
+		require.Contains(t, args, `comment=line1\nline2`)
+	})
+
+	t.Run("blocked cover URL is skipped, not fatal", func(t *testing.T) {
+		// The cover is served on loopback; with the default (secure) policy the
+		// SSRF guard blocks it, so getCoverPhoto fails and the cover is omitted.
+		png := makePNG(t, 8, 8)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write(png)
+		}))
+		t.Cleanup(server.Close)
+
+		ms := newTestServer(t, nil)
+		filespec := NewFileSpec()
+		filespec.Extension = ".mp3"
+		filespec.Metadata["cover"] = server.URL
+
+		args, cleanup := ms.processArguments(ctx, filespec, "in.mp3", "out.mp3")
+		t.Cleanup(cleanup)
+
+		require.NotContains(t, args, "-map") // no cover art was added
+	})
+
+	t.Run("cover art adds a second input", func(t *testing.T) {
+		requireWorkingFFmpeg(t)
+
+		png := makePNG(t, 64, 64)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write(png)
+		}))
+		t.Cleanup(server.Close)
+
+		ms := newTestServer(t, nil, WithAllowPrivateIPs(true))
+		filespec := NewFileSpec()
+		filespec.Extension = ".mp3"
+		filespec.Metadata["cover"] = server.URL
+
+		args, cleanup := ms.processArguments(ctx, filespec, "in.mp3", "out.mp3")
+
+		// Cover art is mapped in as a second input stream...
+		require.Subset(t, args, []string{"-map", "0:a", "1:v", "copy"})
+
+		// ...and cleanup removes the downloaded cover temp file.
+		require.NotPanics(t, cleanup)
+	})
 }

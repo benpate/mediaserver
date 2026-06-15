@@ -154,7 +154,7 @@ func (ms MediaServer) processArguments(ctx context.Context, filespec FileSpec, i
 		for key, value := range filespec.Metadata {
 			if key != "cover" {
 				value = strings.ReplaceAll(value, "\n", `\n`)
-				args = append(args, "-metadata", key+`="`+value+`"`)
+				args = append(args, "-metadata", key+"="+value)
 			}
 		}
 	}
