@@ -40,7 +40,7 @@ func NewWorkingDirectory(folder string, ttl time.Duration, capacity int) *Workin
 	builder, err := otter.NewBuilder[string, int64](capacity)
 
 	if err != nil {
-		panic(err)
+		panic(derp.Wrap(err, location, "Creating Otter cache builder"))
 	}
 
 	// Configure the cache builder
@@ -51,7 +51,7 @@ func NewWorkingDirectory(folder string, ttl time.Duration, capacity int) *Workin
 	cache, err := builder.Build()
 
 	if err != nil {
-		derp.Report(derp.Wrap(err, location, "Unable to build Otter cache"))
+		panic(derp.Wrap(err, location, "Building Otter cache"))
 	}
 
 	// Add the cache into the result and return
@@ -78,25 +78,25 @@ func (wd *WorkingDirectory) Write(name string, reader io.Reader) error {
 	writer, err := os.Create(filename)
 
 	if err != nil {
-		return derp.Wrap(err, location, "Unable to create file", filename)
+		return derp.Wrap(err, location, "Creating file", filename)
 	}
 
 	// Copy the data into the file
 	if _, err := io.Copy(writer, reader); err != nil {
 
 		if errClose := writer.Close(); errClose != nil {
-			return derp.Wrap(err, location, "Unable to copy data into file", filename, errClose)
+			return derp.Wrap(err, location, "Closing file writer", filename, errClose)
 		}
 
 		if errRemove := os.Remove(filename); errRemove != nil {
-			return derp.Wrap(err, location, "Unable to copy data into file", filename, errRemove)
+			return derp.Wrap(err, location, "Removing file after copy failure", filename, errRemove)
 		}
 
-		return derp.Wrap(err, location, "Unable to copy data into file", filename)
+		return derp.Wrap(err, location, "Copying data into file", filename)
 	}
 
 	if err := writer.Close(); err != nil {
-		return derp.Wrap(err, location, "Unable to close file writer")
+		return derp.Wrap(err, location, "Closing file writer", filename, err)
 	}
 
 	// Add the file to the cache
@@ -114,7 +114,7 @@ func (wd *WorkingDirectory) Open(name string) (*os.File, error) {
 	file, err := os.Open(wd.filename(name))
 
 	if err != nil {
-		return nil, derp.Wrap(err, location, "Error opening file", name)
+		return nil, derp.Wrap(err, location, "Opening file", name)
 	}
 
 	// Reset the TTL
@@ -175,6 +175,8 @@ func (wd *WorkingDirectory) start() {
 // is responsible for deleting the working file from the filesystem
 func (wd *WorkingDirectory) onDelete(key string, _ int64, cause otter.DeletionCause) {
 
+	const location = "mediaserver.WorkingDirectory.onDelete"
+
 	// RULE: Ignore "Replaced"  events. The value is still there :)
 	if cause == otter.Replaced {
 		return
@@ -182,7 +184,7 @@ func (wd *WorkingDirectory) onDelete(key string, _ int64, cause otter.DeletionCa
 
 	// Delete the file from the filesystem
 	if err := os.Remove(wd.filename(key)); err != nil {
-		derp.Report(derp.Wrap(err, "mediaserver.WorkingDirectory.onDelete", "Unable to delete file", key, cause))
+		derp.Report(derp.Wrap(err, location, "Deleting file", key, cause))
 	}
 }
 
