@@ -22,6 +22,7 @@ type FileSpec struct {
 	Cache             bool         // If TRUE, then allow caching
 }
 
+// NewFileSpec returns a FileSpec with an initialized Metadata map.
 func NewFileSpec() FileSpec {
 	return FileSpec{
 		Metadata: mapof.NewString(),
@@ -33,14 +34,17 @@ func (filespec *FileSpec) DownloadFilename() string {
 	return filespec.Filename + filespec.Extension
 }
 
+// OriginalMimeType returns the mime type of the original (source) file.
 func (filespec *FileSpec) OriginalMimeType() string {
 	return mime.TypeByExtension(filespec.OriginalExtension)
 }
 
+// OriginalMimeCategory returns the first half of the original file's mime type.
 func (filespec *FileSpec) OriginalMimeCategory() string {
 	return list.Slash(filespec.OriginalMimeType()).First()
 }
 
+// MimeType returns the mime type of the requested (output) file.
 func (filespec *FileSpec) MimeType() string {
 	return mime.TypeByExtension(filespec.Extension)
 }
@@ -72,6 +76,7 @@ func (filespec *FileSpec) ProcessedFilename() string {
 	return buffer.String()
 }
 
+// WorkingFilename returns the filename used for this FileSpec in the working directory.
 func (filespec *FileSpec) WorkingFilename() string {
 	var buffer strings.Builder
 
@@ -112,6 +117,7 @@ func (filespec *FileSpec) writeFilenameArgs(buffer *strings.Builder) {
 	}
 }
 
+// AspectRatio returns the width/height ratio, or 0 if either dimension is unset.
 func (filespec *FileSpec) AspectRatio() float64 {
 
 	if filespec.Width == 0 {

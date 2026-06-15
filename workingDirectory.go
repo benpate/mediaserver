@@ -103,7 +103,7 @@ func (wd *WorkingDirectory) Write(name string, reader io.Reader) error {
 	return nil
 }
 
-// Get loads the file from the working directory and resets the TTL.
+// Open loads the file from the working directory and resets the TTL.
 // It is the caller's responsibility to close the file when finished.
 func (wd *WorkingDirectory) Open(name string) (*os.File, error) {
 
