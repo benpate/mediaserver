@@ -216,7 +216,7 @@ func isFFmpegMediaType(mediaType string) bool {
 	return false
 }
 
-// round100
+// round100 rounds number up to the nearest multiple of 100.
 func round100(number int) int {
 
 	result := (number / 100)

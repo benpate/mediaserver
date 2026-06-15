@@ -32,7 +32,7 @@ func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.
 
 	defer func() {
 		if err := originalFile.Close(); err != nil {
-			derp.Report(derp.Wrap(err, location, "Unable to close orignial file", filespec.Filename))
+			derp.Report(derp.Wrap(err, location, "Unable to close original file", filespec.Filename))
 		}
 	}()
 
@@ -58,7 +58,7 @@ func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.
 	// Copy the original file into a temporary file.
 	// FFmpeg requires actual files (not input pipes) for certain kinds of inputs,
 	// for instance, when it needs to seek to the end of a media file to access metadata.
-	// Thisfile  will be deleted automatically when the function exits.
+	// This file will be deleted automatically when the function exits.
 	tempInputFilename, err := writeTempFile(originalFile, filespec.OriginalExtension)
 
 	if err != nil {
@@ -73,7 +73,7 @@ func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.
 	}()
 
 	// Create an empty file to write the output to.
-	// FFmpeg requies actual files (not output pipes) for certain kinds of outputs,
+	// FFmpeg requires actual files (not output pipes) for certain kinds of outputs,
 	// for instance, when it needs to seek to the beginning of a media file to write metadata.
 	// This file will be deleted automatically when the function exits.
 	tempOutputFilename, err := getTempFilename(filespec.Extension)
@@ -184,7 +184,7 @@ func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.
 }
 
 // ensureProcessedFileExists writes a new processed version of the file into the cache
-func (ms *MediaServer) ensureProcessedFileExists(ctx context.Context, filespec FileSpec) error {
+func (ms MediaServer) ensureProcessedFileExists(ctx context.Context, filespec FileSpec) error {
 
 	const location = "mediaserver.ensureProcessedFileExists"
 

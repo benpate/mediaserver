@@ -19,7 +19,7 @@ func (ms MediaServer) Serve(responseWriter http.ResponseWriter, request *http.Re
 	workingFilename := filespec.WorkingFilename()
 
 	// Guarantee that we have a working file to serve, bounded by the request's context
-	if err := ms.esureWorkingFileExists(request.Context(), filespec); err != nil {
+	if err := ms.ensureWorkingFileExists(request.Context(), filespec); err != nil {
 		return derp.Wrap(err, location, "Unable to ensure working file exists", filespec)
 	}
 
@@ -60,7 +60,7 @@ func (ms MediaServer) Serve(responseWriter http.ResponseWriter, request *http.Re
 // ServeOriginal returns the original, unprocessed file that was added to the mediaserver
 func (ms MediaServer) ServeOriginal(responseWriter http.ResponseWriter, request *http.Request, filename string) error {
 
-	const location = "mediaserver.Serve"
+	const location = "mediaserver.ServeOriginal"
 
 	// Load the original file
 	originalFile, err := ms.original.Open(filename)
@@ -88,9 +88,9 @@ func (ms MediaServer) ServeOriginal(responseWriter http.ResponseWriter, request 
 	return nil
 }
 
-func (ms MediaServer) esureWorkingFileExists(ctx context.Context, filespec FileSpec) error {
+func (ms MediaServer) ensureWorkingFileExists(ctx context.Context, filespec FileSpec) error {
 
-	const location = "mediaserver.ensureWorkingFile"
+	const location = "mediaserver.ensureWorkingFileExists"
 
 	workingFilename := filespec.WorkingFilename()
 

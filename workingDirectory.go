@@ -69,7 +69,7 @@ func (wd *WorkingDirectory) Exists(name string) bool {
 // Write adds a new file into the working directory, and sets a TTL for the file to be deleted
 func (wd *WorkingDirectory) Write(name string, reader io.Reader) error {
 
-	const location = "mediaserver.WorkingDirector.Write"
+	const location = "mediaserver.WorkingDirectory.Write"
 
 	filename := wd.filename(name)
 
@@ -145,7 +145,7 @@ func (wd *WorkingDirectory) Close() {
 	wd.cache.Close()
 }
 
-// Start runs a background process to actively remove files from the working directory that have expired
+// start runs a background process to actively remove files from the working directory that have expired
 func (wd *WorkingDirectory) start() {
 
 	defer close(wd.stopped)
