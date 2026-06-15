@@ -1,6 +1,7 @@
 package mediaserver
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -111,7 +112,7 @@ func TestGetCoverPhoto_FFmpegNotInstalled(t *testing.T) {
 	ffmpeg.IsInstalled = false
 	t.Cleanup(func() { ffmpeg.IsInstalled = original })
 
-	_, err := getCoverPhoto("http://example.com/cover.jpg")
+	_, err := getCoverPhoto(context.Background(), "http://example.com/cover.jpg")
 	require.Error(t, err)
 }
 

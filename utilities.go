@@ -2,6 +2,7 @@ package mediaserver
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"os/exec"
@@ -15,7 +16,7 @@ import (
 // reasonable size for an album cover photo, then returns the filename
 // of the resulting file (in the temp directory).
 // It is the caller's responsibility to delete the file when it is no longer needed.
-func getCoverPhoto(url string) (string, error) {
+func getCoverPhoto(ctx context.Context, url string) (string, error) {
 
 	const location = "mediaserver.getCoverPhoto"
 
@@ -54,7 +55,7 @@ func getCoverPhoto(url string) (string, error) {
 	add(tempFilename)
 
 	// Execute FFmpeg
-	ffmpeg := exec.Command("ffmpeg", args...)
+	ffmpeg := exec.CommandContext(ctx, "ffmpeg", args...)
 	ffmpeg.Stderr = &errors
 
 	if err := ffmpeg.Run(); err != nil {

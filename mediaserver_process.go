@@ -2,6 +2,7 @@ package mediaserver
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"os/exec"
@@ -13,10 +14,14 @@ import (
 	"github.com/spf13/afero"
 )
 
-// Process decodes an image file and applies all of the processing steps requested in the FileSpec
-func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
+// Process decodes an image file and applies all of the processing steps requested in the FileSpec.
+// The FFmpeg run is bounded by ctx; if ctx has no deadline, a default timeout is applied.
+func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.Writer, opts ...Option) error {
 
 	const location = "mediaserver.Process"
+
+	ctx, cancel := newOptions(opts...).withTimeout(ctx)
+	defer cancel()
 
 	// Open the original file from the afero filesystem
 	originalFile, err := ms.original.Open(filespec.Filename)
@@ -109,7 +114,7 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 		// Special case for music cover art
 		if cover := filespec.Metadata["cover"]; cover != "" {
 
-			if tempFilename, err := getCoverPhoto(cover); err != nil {
+			if tempFilename, err := getCoverPhoto(ctx, cover); err != nil {
 				derp.Report(derp.Wrap(err, location, "Error getting cover photo", cover))
 
 			} else {
@@ -149,7 +154,7 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 	// Execute FFmpeg command
 	var errors bytes.Buffer
 
-	ffmpeg := exec.Command("ffmpeg", args...)
+	ffmpeg := exec.CommandContext(ctx, "ffmpeg", args...)
 	ffmpeg.Stdout = output
 	ffmpeg.Stderr = &errors
 
@@ -179,7 +184,7 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 }
 
 // ensureProcessedFileExists writes a new processed version of the file into the cache
-func (ms *MediaServer) ensureProcessedFileExists(filespec FileSpec) error {
+func (ms *MediaServer) ensureProcessedFileExists(ctx context.Context, filespec FileSpec, opts ...Option) error {
 
 	const location = "mediaserver.ensureProcessedFileExists"
 
@@ -210,7 +215,7 @@ func (ms *MediaServer) ensureProcessedFileExists(filespec FileSpec) error {
 	}()
 
 	// Process the file into the cache.  Write it fully, before returning it to the caller.
-	if err := ms.Process(filespec, cachedFile); err != nil {
+	if err := ms.Process(ctx, filespec, cachedFile, opts...); err != nil {
 		derp.Report(ms.processed.Remove(cachedFile.Name()))
 		return derp.Wrap(err, location, "Unable to process original file", filespec)
 	}
