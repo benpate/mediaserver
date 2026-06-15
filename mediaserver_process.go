@@ -194,11 +194,7 @@ func (ms MediaServer) ensureProcessedFileExists(ctx context.Context, filespec Fi
 		return derp.Wrap(err, location, "Unable to create file in mediaserver cache", filespec)
 	}
 
-	defer func() {
-		if err := cachedFile.Close(); err != nil {
-			derp.Report(derp.Wrap(err, location, "Unable to close cached file", filespec))
-		}
-	}()
+	defer derp.ReportFunc(cachedFile.Close)
 
 	// Process the file into the cache.  Write it fully, before returning it to the caller.
 	if err := ms.Process(ctx, filespec, cachedFile); err != nil {
