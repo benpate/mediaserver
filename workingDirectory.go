@@ -19,8 +19,9 @@ type WorkingDirectory struct {
 	stopped chan struct{} // closed by the background goroutine once it has exited
 }
 
-// NewWorkingDirectory returns a fully initialized WorkingDirectory object
-func NewWorkingDirectory(folder string, ttl time.Duration, capacity int) WorkingDirectory {
+// NewWorkingDirectory returns a fully initialized WorkingDirectory. It launches a
+// background cleanup goroutine, so the caller must Close it when finished.
+func NewWorkingDirectory(folder string, ttl time.Duration, capacity int) *WorkingDirectory {
 
 	const location = "mediaserver.NewWorkingDirectory"
 
@@ -28,7 +29,7 @@ func NewWorkingDirectory(folder string, ttl time.Duration, capacity int) Working
 		folder = os.TempDir()
 	}
 
-	result := WorkingDirectory{
+	result := &WorkingDirectory{
 		folder:  folder,
 		ttl:     ttl,
 		done:    make(chan struct{}),

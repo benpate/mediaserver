@@ -15,7 +15,7 @@ func TestMediaServer(t *testing.T) {
 	mock_cache := afero.NewMemMapFs()
 	mock_working := NewWorkingDirectory(os.TempDir(), 1*time.Minute, 100)
 
-	m := New(mock_originals, mock_cache, &mock_working)
+	m := New(mock_originals, mock_cache, mock_working)
 
 	require.NotNil(t, m)
 }

@@ -36,7 +36,7 @@ func TestDelete_ProcessedError(t *testing.T) {
 
 	working := NewWorkingDirectory(t.TempDir(), time.Minute, 100)
 	t.Cleanup(working.Close)
-	ms := New(originals, afero.NewReadOnlyFs(afero.NewMemMapFs()), &working)
+	ms := New(originals, afero.NewReadOnlyFs(afero.NewMemMapFs()), working)
 
 	require.Error(t, ms.Delete("file.txt"))
 }

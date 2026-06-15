@@ -64,7 +64,7 @@ func newTestServer(t *testing.T, original afero.Fs, opts ...Option) MediaServer 
 	working := NewWorkingDirectory(t.TempDir(), time.Minute, 100)
 	t.Cleanup(working.Close)
 
-	return New(original, processed, &working, opts...)
+	return New(original, processed, working, opts...)
 }
 
 // makePNG returns the bytes of a valid solid-color PNG of the given dimensions.
