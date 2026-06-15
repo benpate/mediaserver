@@ -221,6 +221,7 @@ func (filespec *FileSpec) ffmpegArguments() []string {
 			result = append(result, "-movflags", "+faststart")
 			result = append(result, "-f", "opus")
 
+		// All other audio extensions are rewritten to use the MP3 default.
 		default:
 			filespec.Extension = ".mp3"
 			result = append(result, "-c:a", "libmp3lame")
@@ -235,24 +236,17 @@ func (filespec *FileSpec) ffmpegArguments() []string {
 
 		switch filespec.Extension {
 
-		case ".mp4":
-			filespec.Extension = ".mp4"
-			result = append(result, "-c:v", "libx264")
-			result = append(result, "-movflags", "+faststart")
-			result = append(result, "-f", "mp4")
-
 		case ".webm":
-			filespec.Extension = ".webm"
 			result = append(result, "-c:v", "libx264")
 			result = append(result, "-movflags", "+faststart")
 			result = append(result, "-f", "webm")
 
 		case ".ogg":
-			filespec.Extension = ".ogg"
 			result = append(result, "-c:v", "libx264")
 			result = append(result, "-movflags", "+faststart")
 			result = append(result, "-f", "ogg")
 
+		// All other video extension are rewritten to use the H.264/MP4 default.
 		default:
 			filespec.Extension = ".mp4"
 			result = append(result, "-c:v", "libx264")
