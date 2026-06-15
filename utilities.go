@@ -3,15 +3,11 @@ package mediaserver
 import (
 	"bytes"
 	"io"
-	"math/rand/v2"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"time"
 
 	"github.com/benpate/derp"
 	"github.com/benpate/mediaserver/ffmpeg"
-	"github.com/benpate/rosetta/convert"
 	"github.com/spf13/afero"
 )
 
@@ -27,7 +23,11 @@ func getCoverPhoto(url string) (string, error) {
 		return "", derp.Internal("mediaserver.GetCoverPhoto", "FFmpeg is not installed on this server")
 	}
 
-	tempFilename := getTempFilename(".jpg")
+	tempFilename, err := getTempFilename(".jpg")
+
+	if err != nil {
+		return "", derp.Wrap(err, location, "Unable to create temp file")
+	}
 
 	// Set up arguments slice to be passed into FFmpeg...
 	args := make([]string, 0)
@@ -37,6 +37,9 @@ func getCoverPhoto(url string) (string, error) {
 	add := func(values ...string) {
 		args = append(args, values...)
 	}
+
+	// overwrite the (pre-created) temp output file without prompting
+	add("-y")
 
 	// input from the URL
 	add("-i", url)
@@ -67,13 +70,28 @@ func getCoverPhoto(url string) (string, error) {
 	return tempFilename, nil
 }
 
-// getTempFilename returns a valid name for a temporary file, but does not actually create the file.
-func getTempFilename(extension string) string {
+// getTempFilename atomically creates an empty temporary file and returns its
+// name. Creating the file (rather than just generating a name) closes the
+// symlink race in the shared temp directory: os.CreateTemp uses O_EXCL and a
+// random name. Callers pass "-y" to ffmpeg so it overwrites this placeholder,
+// and it is the caller's responsibility to delete the file when finished.
+func getTempFilename(extension string) (string, error) {
 
-	// Create a unique filename for the temporary file
-	timestamp := convert.String(time.Now().UnixNano())
-	random := convert.String(rand.Int())
-	return filepath.Join(os.TempDir(), "mediaserver-"+timestamp+"-"+random+extension)
+	const location = "mediaserver.getTempFilename"
+
+	file, err := os.CreateTemp("", "mediaserver-*"+extension)
+
+	if err != nil {
+		return "", derp.Wrap(err, location, "Unable to create temporary file")
+	}
+
+	name := file.Name()
+
+	if err := file.Close(); err != nil {
+		return "", derp.Wrap(err, location, "Unable to close temporary file", name)
+	}
+
+	return name, nil
 }
 
 // writeTempFile writes a file to a temporary location on the local filesystem, using the provided extension

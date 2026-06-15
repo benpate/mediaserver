@@ -48,18 +48,24 @@ func TestIsFFmpegMediaType(t *testing.T) {
 }
 
 func TestGetTempFilename(t *testing.T) {
-	name := getTempFilename(".jpg")
+	name, err := getTempFilename(".jpg")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Remove(name) })
 
 	require.Equal(t, filepath.Clean(os.TempDir()), filepath.Dir(name))
 	require.True(t, strings.HasSuffix(name, ".jpg"))
 	require.Contains(t, name, "mediaserver-")
 
-	// getTempFilename does not create the file...
-	_, err := os.Stat(name)
-	require.True(t, os.IsNotExist(err))
+	// getTempFilename atomically creates the (empty) file...
+	info, err := os.Stat(name)
+	require.NoError(t, err)
+	require.Equal(t, int64(0), info.Size())
 
 	// ...and successive calls return distinct names.
-	require.NotEqual(t, name, getTempFilename(".jpg"))
+	other, err := getTempFilename(".jpg")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Remove(other) })
+	require.NotEqual(t, name, other)
 }
 
 func TestWriteTempFile(t *testing.T) {

@@ -71,7 +71,11 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 	// FFmpeg requies actual files (not output pipes) for certain kinds of outputs,
 	// for instance, when it needs to seek to the beginning of a media file to write metadata.
 	// This file will be deleted automatically when the function exits.
-	tempOutputFilename := getTempFilename(filespec.Extension)
+	tempOutputFilename, err := getTempFilename(filespec.Extension)
+
+	if err != nil {
+		return derp.Wrap(err, location, "Unable to create temp output file", filespec)
+	}
 
 	log.Trace().Str("location", location).Str("tempOutputFilename", tempOutputFilename).Msg("Created temp output file..")
 
@@ -92,6 +96,9 @@ func (ms MediaServer) Process(filespec FileSpec, output io.Writer) error {
 	add := func(values ...string) {
 		args = append(args, values...)
 	}
+
+	// overwrite the (pre-created) temp output file without prompting
+	add("-y")
 
 	// input #0 is the original file (now in the temp directory)
 	add("-i", tempInputFilename)
