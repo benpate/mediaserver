@@ -12,10 +12,11 @@ import (
 
 // WorkingDirectory manages files added and removed to the working directory.
 type WorkingDirectory struct {
-	folder string
-	cache  otter.Cache[string, int64]
-	ttl    time.Duration
-	done   chan struct{}
+	folder  string
+	cache   otter.Cache[string, int64]
+	ttl     time.Duration
+	done    chan struct{} // closed by Close to signal the background goroutine to stop
+	stopped chan struct{} // closed by the background goroutine once it has exited
 }
 
 // NewWorkingDirectory returns a fully initialized WorkingDirectory object
@@ -28,9 +29,10 @@ func NewWorkingDirectory(folder string, ttl time.Duration, capacity int) Working
 	}
 
 	result := WorkingDirectory{
-		folder: folder,
-		ttl:    ttl,
-		done:   make(chan struct{}),
+		folder:  folder,
+		ttl:     ttl,
+		done:    make(chan struct{}),
+		stopped: make(chan struct{}),
 	}
 
 	// Create a cache builder
@@ -122,9 +124,11 @@ func (wd *WorkingDirectory) Open(name string) (*os.File, error) {
 }
 
 // Remove deletes a file from the working directory
-// This should trigger the onDelete event for the file.
+// This triggers the onDelete event for the file.
 func (wd *WorkingDirectory) Remove(name string) {
-	wd.cache.Delete(filepath.Join(wd.folder, name))
+	// The cache key is the bare name (matching Write); onDelete joins it with
+	// the folder to find the file on disk.
+	wd.cache.Delete(name)
 }
 
 // RemoveAll deletes all files from the working directory
@@ -136,6 +140,7 @@ func (wd *WorkingDirectory) RemoveAll() {
 // Close shuts down the working directory, all background processes, and deletes all files from the filesystem
 func (wd *WorkingDirectory) Close() {
 	close(wd.done)
+	<-wd.stopped // Wait for the background goroutine to exit before touching the cache
 	wd.RemoveAll()
 	wd.cache.Close()
 }
@@ -143,20 +148,23 @@ func (wd *WorkingDirectory) Close() {
 // Start runs a background process to actively remove files from the working directory that have expired
 func (wd *WorkingDirectory) start() {
 
+	defer close(wd.stopped)
+
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
 	for {
 		select {
 
 		case <-wd.done:
 			return
 
-		default:
+		case now := <-ticker.C:
 
-			time.Sleep(30 * time.Second)
+			expiration := now.Unix()
 
-			now := time.Now().Unix()
-
-			wd.cache.DeleteByFunc(func(filename string, expiration int64) bool {
-				return (expiration < now)
+			wd.cache.DeleteByFunc(func(filename string, value int64) bool {
+				return (value < expiration)
 			})
 		}
 	}
