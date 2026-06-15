@@ -58,7 +58,7 @@ func (ms MediaServer) Serve(responseWriter http.ResponseWriter, request *http.Re
 }
 
 // ServeOriginal returns the original, unprocessed file that was added to the mediaserver
-func (ms MediaServer) ServeOriginal(responseWriter http.ResponseWriter, request *http.Request, filename string) error {
+func (ms MediaServer) ServeOriginal(responseWriter http.ResponseWriter, _ *http.Request, filename string) error {
 
 	const location = "mediaserver.ServeOriginal"
 

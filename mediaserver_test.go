@@ -11,11 +11,11 @@ import (
 
 func TestMediaServer(t *testing.T) {
 
-	mock_originals := afero.NewMemMapFs()
-	mock_cache := afero.NewMemMapFs()
-	mock_working := NewWorkingDirectory(os.TempDir(), 1*time.Minute, 100)
+	mockOriginals := afero.NewMemMapFs()
+	mockCache := afero.NewMemMapFs()
+	mockWorking := NewWorkingDirectory(os.TempDir(), 1*time.Minute, 100)
 
-	m := New(mock_originals, mock_cache, mock_working)
+	m := New(mockOriginals, mockCache, mockWorking)
 
 	require.NotNil(t, m)
 }

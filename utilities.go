@@ -23,7 +23,7 @@ func (ms MediaServer) getCoverPhoto(ctx context.Context, rawURL string) (string,
 
 	const location = "mediaserver.getCoverPhoto"
 
-	if !ffmpeg.IsInstalled {
+	if !ffmpegInstalled() {
 		return "", derp.Internal(location, "FFmpeg is not installed on this server")
 	}
 

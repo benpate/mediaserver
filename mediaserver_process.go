@@ -12,6 +12,11 @@ import (
 	"github.com/spf13/afero"
 )
 
+// ffmpegInstalled reports whether ffmpeg is available. It is a package variable
+// (rather than a direct call to ffmpeg.IsInstalled) so tests can override it to
+// exercise the "ffmpeg missing" paths on a machine that has ffmpeg installed.
+var ffmpegInstalled = ffmpeg.IsInstalled
+
 // Process decodes a media file and applies the processing steps in the FileSpec,
 // writing the result to output. The work is bounded by ctx; if ctx has no
 // deadline, a default timeout is applied.
@@ -47,7 +52,7 @@ func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.
 	}
 
 	// Otherwise this is an Audio/Video/Image file that FFmpeg can process.
-	if !ffmpeg.IsInstalled {
+	if !ffmpegInstalled() {
 		return derp.Internal(location, "FFmpeg is not installed on this server")
 	}
 
@@ -186,8 +191,11 @@ func (ms MediaServer) ensureProcessedFileExists(ctx context.Context, filespec Fi
 		return derp.Wrap(err, location, "Unable to create cache folder", filespec)
 	}
 
-	// Create a new processed file and write the processed file into the cache
-	// TODO: This should probably write to a temp file until the process is complete, then rename it.
+	// Create a new processed file and write the processed file into the cache.
+	// NOTE: a mid-Process failure can leave a partial file in the cache; the error
+	// path below Removes it, but a crash would not. Writing to a temp file and
+	// renaming would be more robust, except the cache may be S3-backed, where
+	// rename is not atomic (see Put).
 	cachedFile, err := ms.processed.Create(filespec.ProcessedPath())
 
 	if err != nil {

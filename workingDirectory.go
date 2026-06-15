@@ -164,7 +164,7 @@ func (wd *WorkingDirectory) start() {
 
 			expiration := now.Unix()
 
-			wd.cache.DeleteByFunc(func(filename string, value int64) bool {
+			wd.cache.DeleteByFunc(func(_ string, value int64) bool {
 				return (value < expiration)
 			})
 		}
@@ -173,7 +173,7 @@ func (wd *WorkingDirectory) start() {
 
 // onDelete is called when the file is evicted from the cache, and
 // is responsible for deleting the working file from the filesystem
-func (wd *WorkingDirectory) onDelete(key string, value int64, cause otter.DeletionCause) {
+func (wd *WorkingDirectory) onDelete(key string, _ int64, cause otter.DeletionCause) {
 
 	// RULE: Ignore "Replaced"  events. The value is still there :)
 	if cause == otter.Replaced {

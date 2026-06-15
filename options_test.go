@@ -29,7 +29,7 @@ func TestWithAllowPrivateIPs(t *testing.T) {
 func TestNewOptions_AppliesOverrides(t *testing.T) {
 	// The apply loop runs each Option against the defaults.
 	applied := false
-	newOptions(func(o *options) { applied = true })
+	newOptions(func(_ *options) { applied = true })
 	require.True(t, applied)
 }
 

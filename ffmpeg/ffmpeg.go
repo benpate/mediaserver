@@ -3,8 +3,13 @@ package ffmpeg
 
 import "os/exec"
 
-// IsInstalled is a global variable that is set to true if ffmpeg is installed on the server
-var IsInstalled = false
+// isInstalled is set by init to true when the ffmpeg binary is found on the PATH.
+var isInstalled = false
+
+// IsInstalled reports whether the ffmpeg binary was found on the PATH at startup.
+func IsInstalled() bool {
+	return isInstalled
+}
 
 /* FFMPEG NOTES
 
@@ -18,12 +23,10 @@ Current options in use:
 brew install homebrew-ffmpeg/ffmpeg/ffmpeg --with-fdk-aac --with-webp
 */
 
-// init checks to see if ffmpeg is installed on the server, and saves this in
-// a global variable
+// init records whether ffmpeg is installed on the server (found on the PATH).
 func init() {
 
-	// Check to see if ffmpeg is installed
 	if _, err := exec.LookPath("ffmpeg"); err == nil {
-		IsInstalled = true
+		isInstalled = true
 	}
 }

@@ -41,7 +41,7 @@ func init() {
 func requireWorkingFFmpeg(t *testing.T) {
 	t.Helper()
 
-	if !ffmpeg.IsInstalled {
+	if !ffmpeg.IsInstalled() {
 		t.Skip("ffmpeg is not installed; skipping ffmpeg-dependent test")
 	}
 

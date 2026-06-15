@@ -5,7 +5,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/benpate/mediaserver/ffmpeg"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 )
@@ -34,9 +33,9 @@ func TestProcess_MissingOriginal(t *testing.T) {
 
 func TestProcess_MediaWithoutFFmpeg(t *testing.T) {
 	// A media file cannot be processed when ffmpeg is not installed.
-	original := ffmpeg.IsInstalled
-	ffmpeg.IsInstalled = false
-	t.Cleanup(func() { ffmpeg.IsInstalled = original })
+	original := ffmpegInstalled
+	ffmpegInstalled = func() bool { return false }
+	t.Cleanup(func() { ffmpegInstalled = original })
 
 	originals := afero.NewMemMapFs()
 	require.NoError(t, afero.WriteFile(originals, "photo.jpg", []byte("not really a jpg"), 0777))

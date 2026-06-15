@@ -13,7 +13,7 @@ import (
 func requireFFmpeg(t *testing.T) {
 	t.Helper()
 
-	if !IsInstalled {
+	if !IsInstalled() {
 		t.Skip("ffmpeg is not installed; skipping ffmpeg-dependent test")
 	}
 

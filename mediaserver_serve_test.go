@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/benpate/mediaserver/ffmpeg"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 )
@@ -78,9 +77,9 @@ func TestServe_CopyThrough_UsesCache(t *testing.T) {
 func TestServe_ProcessingError(t *testing.T) {
 	// A media file with ffmpeg unavailable fails during the processing step,
 	// and the error propagates out through Serve.
-	original := ffmpeg.IsInstalled
-	ffmpeg.IsInstalled = false
-	t.Cleanup(func() { ffmpeg.IsInstalled = original })
+	original := ffmpegInstalled
+	ffmpegInstalled = func() bool { return false }
+	t.Cleanup(func() { ffmpegInstalled = original })
 
 	originals := afero.NewMemMapFs()
 	require.NoError(t, afero.WriteFile(originals, "photo.jpg", []byte("not really a jpg"), 0777))

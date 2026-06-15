@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/benpate/mediaserver/ffmpeg"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 )
@@ -108,9 +107,9 @@ func TestEnsureAferoFolderExists_MkdirError(t *testing.T) {
 
 func TestGetCoverPhoto_FFmpegNotInstalled(t *testing.T) {
 	// Force the "not installed" branch deterministically, without ffmpeg.
-	original := ffmpeg.IsInstalled
-	ffmpeg.IsInstalled = false
-	t.Cleanup(func() { ffmpeg.IsInstalled = original })
+	original := ffmpegInstalled
+	ffmpegInstalled = func() bool { return false }
+	t.Cleanup(func() { ffmpegInstalled = original })
 
 	ms := newTestServer(t, nil)
 	_, err := ms.getCoverPhoto(context.Background(), "http://example.com/cover.jpg")
