@@ -146,6 +146,10 @@ func (filespec *FileSpec) CacheHeight() int {
 	return round100(filespec.Height)
 }
 
+// ffmpegArguments returns the FFmpeg codec and format arguments for the requested
+// output, based on the FileSpec's MimeCategory and Extension. Unknown audio and
+// video extensions fall back to mp3 and mp4 respectively. It does not modify the
+// FileSpec.
 func (filespec *FileSpec) ffmpegArguments() []string {
 
 	// Build the command line arguments
