@@ -11,26 +11,30 @@ Media Server is a media manipulation library that works inside of your existing 
 
 ```go
 
-ms := mediaserver.New(originalFilesystem, cacheFilesystem)
+// originals, processed are afero.Fs filesystems; working is a local temp area.
+ms := mediaserver.New(originals, processed, working)
 
-if err := ms.Put("myfile", filedata); err != nil {
+// Add an original file
+if err := ms.Put("myfile.png", fileData); err != nil {
   // handle error
 }
 
-filespec := mediaserver.Filespec{
-  Filename: "myfile"
-  MimeType: "image/webp"
-  Height: 600,
-  Width: 600,
+// Describe the processed file you want (resized, transcoded, etc.)
+filespec := mediaserver.FileSpec{
+  Filename:          "myfile.png",
+  OriginalExtension: ".png",
+  Extension:         ".webp",
+  Width:             600,
+  Height:            600,
 }
 
-if err := ms.Get(filespec, result); err != nil {
+// Serve writes the (cached or freshly processed) file to the HTTP response
+if err := ms.Serve(responseWriter, request, filespec); err != nil {
   // handle error
 }
-
-// return result to client...
-
 ```
+
+Use [`Process`](https://pkg.go.dev/github.com/benpate/mediaserver#MediaServer.Process) instead of `Serve` to write the result to any `io.Writer`, and [`ServeOriginal`](https://pkg.go.dev/github.com/benpate/mediaserver#MediaServer.ServeOriginal) to return an unmodified upload.
 
 ## Image Resizing
 
@@ -56,7 +60,7 @@ filespec := mediaserver.Filespec{
 
 **Image Types**: GIF, JPG, PNG, WEBP
 
-**Audio Types**: FLAC, AAC, MP3
+**Audio Types**: AAC, FLAC, M4A, MP3, OGG, OPUS
 
 **Video Types**: Coming soon
 
@@ -79,6 +83,18 @@ Media server uses [Afero](https://github.com/spf13/afero) to connect to both of 
 * [Google Cloud Storage](https://github.com/spf13/afero/tree/master/gcsfs)
 * [SFTP](https://github.com/spf13/afero/tree/master/sftpfs)
 
+## What matters here
+
+- **Three filesystems, three roles.** `original` holds untouched uploads, `processed` is a regenerable cache of transcoded results (safe to wipe), and `working` is a local temp area with a TTL. `Serve` walks original → processed → working on demand, generating each layer only when it is missing.
+
+- **Cover-image fetching is SSRF-hardened.** `FileSpec.Metadata["cover"]` is an arbitrary URL that the server downloads. It goes through an SSRF-guarded [remote](https://github.com/benpate/remote) client: only `http`/`https` schemes are allowed, private/loopback IPs are blocked by default (opt in with `WithAllowPrivateIPs`), an optional host allow-list is enforced (`WithAllowedHosts`), and the body is size-capped. FFmpeg then reads only the local file, with `-protocol_whitelist file` so a disguised playlist can't reach back out.
+
+- **A missing or blocked cover is not fatal.** If the cover download fails, it is logged and the media is processed without art — it never aborts the request.
+
+- **The `working` directory must be `Close`d.** `NewWorkingDirectory` launches a background eviction goroutine; failing to `Close` it leaks the goroutine and leaves temp files behind.
+
+- **FFmpeg is required for media transforms.** Non-media files are copied through verbatim, but image/audio/video processing fails cleanly if `ffmpeg` is not on the `PATH`.
+
 ## Pull Requests Welcome
 
-This library is a work in progress, and will benefit from your experience reports, use cases, and contributions.  If you have an idea for making Rosetta better, send in a pull request.  We're all in this together! 🌇
+This library is a work in progress, and will benefit from your experience reports, use cases, and contributions.  If you have an idea for making Media Server better, send in a pull request.  We're all in this together! 🌇
