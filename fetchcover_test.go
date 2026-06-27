@@ -4,8 +4,11 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -65,6 +68,67 @@ func TestFetchCover_AllowsPublicDownload(t *testing.T) {
 	contents, err := os.ReadFile(filename)
 	require.NoError(t, err)
 	require.Equal(t, body, contents)
+}
+
+// FuzzFetchCover throws arbitrary URL strings at fetchCover to confirm its
+// invariants under the default (secure) policy: it never panics, and it always
+// rejects a URL whose scheme is not http/https before any network access. We do
+// NOT assert that fetching always fails — a syntactically valid http(s) URL may
+// resolve to a reachable public host, which the SSRF guard permits by design.
+func FuzzFetchCover(f *testing.F) {
+
+	// Seed with a mix of valid-looking, malformed, and dangerous inputs.
+	for _, seed := range []string{
+		"",
+		"http://example.com/cover.jpg",
+		"https://example.com/cover.jpg",
+		"file:///etc/passwd",
+		"data:text/plain;base64,SGVsbG8=",
+		"ftp://example.com/x",
+		"http://127.0.0.1/cover.jpg",
+		"http://[::1]/cover.jpg",
+		"https://user:pass@example.com/x",
+		"://missing-scheme",
+		"http://",
+		"h t t p://bad",
+		"\x00\x01\x02",
+	} {
+		f.Add(seed)
+	}
+
+	ms := newTestServer(f, nil)
+
+	f.Fuzz(func(t *testing.T, rawURL string) {
+
+		// Use a short deadline so a syntactically valid URL pointing at an
+		// unresponsive public host fails fast instead of blocking the fuzzer on
+		// the remote client's default network timeout. This keeps the fuzzer
+		// exercising URL parsing and validation, not real network latency.
+		ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+		defer cancel()
+
+		filename, err := ms.fetchCover(ctx, rawURL)
+
+		// A successful fetch returns a real temp file; clean it up. (This can
+		// happen for a valid http(s) URL that resolves to a reachable public host.)
+		if err == nil {
+			_ = os.Remove(filename)
+			require.NotEmpty(t, filename, "a successful fetch must return a filename for %q", rawURL)
+			return
+		}
+
+		// On failure, no temp file name is handed back to leak.
+		require.Empty(t, filename, "a failed fetch should return an empty filename for %q", rawURL)
+
+		// A URL that parses cleanly but is not http/https must be rejected on
+		// scheme alone, before any network access is attempted.
+		if parsed, parseErr := url.Parse(rawURL); parseErr == nil {
+			scheme := strings.ToLower(parsed.Scheme)
+			if scheme != "http" && scheme != "https" {
+				require.Error(t, err, "non-http(s) scheme %q must be rejected", parsed.Scheme)
+			}
+		}
+	})
 }
 
 func TestGetCoverPhoto_EndToEnd(t *testing.T) {

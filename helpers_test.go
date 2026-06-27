@@ -53,7 +53,7 @@ func requireWorkingFFmpeg(t *testing.T) {
 // newTestServer returns a MediaServer backed by in-memory "original" and
 // "processed" filesystems and a working directory in a temporary folder. The
 // working directory is closed automatically when the test finishes.
-func newTestServer(t *testing.T, original afero.Fs, opts ...Option) MediaServer {
+func newTestServer(t testing.TB, original afero.Fs, opts ...Option) MediaServer {
 	t.Helper()
 
 	if original == nil {
