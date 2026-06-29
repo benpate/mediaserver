@@ -1,13 +1,14 @@
 # Media Server 🌇
 
-[![GoDoc](https://img.shields.io/badge/go-documentation-blue.svg?style=flat-square)](http://pkg.go.dev/github.com/benpate/mediaserver)
+[![Go Reference](https://pkg.go.dev/badge/github.com/benpate/mediaserver.svg)](https://pkg.go.dev/github.com/benpate/mediaserver)
 [![Version](https://img.shields.io/github/v/release/benpate/mediaserver?include_prereleases&style=flat-square&color=brightgreen)](https://github.com/benpate/mediaserver/releases)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/benpate/mediaserver/go.yml?style=flat-square)](https://github.com/benpate/mediaserver/actions/workflows/go.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/benpate/mediaserver?style=flat-square)](https://goreportcard.com/report/github.com/benpate/mediaserver)
 [![Codecov](https://img.shields.io/codecov/c/github/benpate/mediaserver.svg?style=flat-square)](https://codecov.io/gh/benpate/mediaserver)
 
+## On-the-Fly Media Manipulation for Go
 
-Media Server is a media manipulation library that works inside of your existing applications.  It manages uploads and downloads, and lets you translate files into different encodings on the fly using FFmpeg.  It works primarily with images and audio files, with video manipulations currently under development.
+Media Server is a media manipulation library that works inside of your existing applications. It manages uploads and downloads, and lets you translate files into different encodings on the fly using FFmpeg. It works primarily with images and audio files, with video manipulations currently under development.
 
 ```go
 
@@ -66,13 +67,13 @@ filespec := mediaserver.Filespec{
 
 ## FFmpeg Dependency
 
-This library now depends on [FFmpeg](https://ffmpeg.org) for all media manipulations.  This eliminated a problematic dependency on CGo, and has expanded the kinds of media files that mediaserver can manipulate.
+This library now depends on [FFmpeg](https://ffmpeg.org) for all media manipulations. This eliminated a problematic dependency on CGo, and has expanded the kinds of media files that mediaserver can manipulate.
 
 Media Server maintains two resource directories: one that contains original uploads and a cache of modified or transcoded files.
 
 ## Afero Filesystems
 
-Media server uses [Afero](https://github.com/spf13/afero) to connect to both of the file directories (one for originals, and one for cached results).  Afero is a filesystem abstraction with connectors for many different kinds of directory services, including: 
+Media server uses [Afero](https://github.com/spf13/afero) to connect to both of the file directories (one for originals, and one for cached results). Afero is a filesystem abstraction with connectors for many different kinds of directory services, including:
 
 * local and networked directories
 * memory disks
@@ -83,18 +84,6 @@ Media server uses [Afero](https://github.com/spf13/afero) to connect to both of 
 * [Google Cloud Storage](https://github.com/spf13/afero/tree/master/gcsfs)
 * [SFTP](https://github.com/spf13/afero/tree/master/sftpfs)
 
-## What matters here
-
-- **Three filesystems, three roles.** `original` holds untouched uploads, `processed` is a regenerable cache of transcoded results (safe to wipe), and `working` is a local temp area with a TTL. `Serve` walks original → processed → working on demand, generating each layer only when it is missing.
-
-- **Cover-image fetching is SSRF-hardened.** `FileSpec.Metadata["cover"]` is an arbitrary URL that the server downloads. It goes through an SSRF-guarded [remote](https://github.com/benpate/remote) client: only `http`/`https` schemes are allowed, private/loopback IPs are blocked by default (opt in with `WithAllowPrivateIPs`), an optional host allow-list is enforced (`WithAllowedHosts`), and the body is size-capped. FFmpeg then reads only the local file, with `-protocol_whitelist file` so a disguised playlist can't reach back out.
-
-- **A missing or blocked cover is not fatal.** If the cover download fails, it is logged and the media is processed without art — it never aborts the request.
-
-- **The `working` directory must be `Close`d.** `NewWorkingDirectory` launches a background eviction goroutine; failing to `Close` it leaks the goroutine and leaves temp files behind.
-
-- **FFmpeg is required for media transforms.** Non-media files are copied through verbatim, but image/audio/video processing fails cleanly if `ffmpeg` is not on the `PATH`.
-
 ## Pull Requests Welcome
 
-This library is a work in progress, and will benefit from your experience reports, use cases, and contributions.  If you have an idea for making Media Server better, send in a pull request.  We're all in this together! 🌇
+This library is a work in progress, and will benefit from your experience reports, use cases, and contributions. If you have an idea for making Media Server better, send in a pull request. We're all in this together! 🌇
