@@ -8,4 +8,8 @@
 
 - **The `working` directory must be `Close`d.** `NewWorkingDirectory` launches a background eviction goroutine; failing to `Close` it leaks the goroutine and leaves temp files behind.
 
+- **Working-file removal deletes from disk directly, on purpose.** Otter notifies its deletion listener asynchronously, so `Remove`, `RemoveAll`, and `RemoveByOriginal` call `os.Remove` themselves rather than relying on `onDelete`. Routing them back through the listener would silently reintroduce two bugs: `Close` (which clears the cache and then shuts the processor down) would strand every temp file, and a deleted file would stay servable until the buffer drained.
+
+- **Working filenames must be contained by the working folder.** `WorkingDirectory.filename` rejects anything `filepath.IsLocal` refuses, because `filepath.Join` *cleans* `../escape` into a real path outside the folder instead of failing. `FileSpec.Filename` is caller-supplied, so this is the only thing standing between an untrusted name and an arbitrary write.
+
 - **FFmpeg is required for media transforms.** Non-media files are copied through verbatim, but image/audio/video processing fails cleanly if `ffmpeg` is not on the `PATH`.
