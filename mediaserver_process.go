@@ -95,8 +95,9 @@ func (ms MediaServer) processMedia(ctx context.Context, filespec FileSpec, origi
 		return derp.Wrap(err, location, "Unable to run FFmpeg", filespec)
 	}
 
-	// Copy the finished output file to the destination writer.
-	outputFile, err := os.Open(tempOutputFilename)
+	// Copy the finished output file to the destination writer. The name was minted by
+	// getTempFilename (os.CreateTemp), never by a caller.
+	outputFile, err := os.Open(tempOutputFilename) // #nosec G304
 
 	if err != nil {
 		return derp.Wrap(err, location, "Unable to open temp output file", tempOutputFilename)

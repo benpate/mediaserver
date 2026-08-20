@@ -16,6 +16,9 @@ func Run(ctx context.Context, args ...string) error {
 
 	var stderr bytes.Buffer
 
+	// #nosec G204 -- the binary name is a fixed literal and args are passed as argv,
+	// not through a shell. Callers build each argument as a single element ("-metadata",
+	// "key=value"), so an untrusted value cannot be promoted into a separate flag.
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 	cmd.Stderr = &stderr
 

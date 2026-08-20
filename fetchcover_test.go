@@ -123,8 +123,7 @@ func FuzzFetchCover(f *testing.F) {
 		// A URL that parses cleanly but is not http/https must be rejected on
 		// scheme alone, before any network access is attempted.
 		if parsed, parseErr := url.Parse(rawURL); parseErr == nil {
-			scheme := strings.ToLower(parsed.Scheme)
-			if scheme != "http" && scheme != "https" {
+			if scheme := strings.ToLower(parsed.Scheme); scheme != "http" && scheme != "https" {
 				require.Error(t, err, "non-http(s) scheme %q must be rejected", parsed.Scheme)
 			}
 		}

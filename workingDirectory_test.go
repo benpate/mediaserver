@@ -31,7 +31,47 @@ func TestWorkingDirectory_Filename(t *testing.T) {
 	wd := NewWorkingDirectory("/base/dir", time.Minute, 10)
 	t.Cleanup(wd.Close)
 
-	require.Equal(t, filepath.Join("/base/dir", "file.txt"), wd.filename("file.txt"))
+	filename, err := wd.filename("file.txt")
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join("/base/dir", "file.txt"), filename)
+}
+
+// TestWorkingDirectory_FilenameEscape verifies that a name which would resolve
+// outside the working folder is rejected instead of being silently cleaned by
+// filepath.Join into a path somewhere else on the filesystem.
+func TestWorkingDirectory_FilenameEscape(t *testing.T) {
+	wd := NewWorkingDirectory("/base/dir", time.Minute, 10)
+	t.Cleanup(wd.Close)
+
+	for _, name := range []string{"../escaped.txt", "../../escaped.txt", "/etc/passwd", ""} {
+		filename, err := wd.filename(name)
+		require.Error(t, err, "name %q must be rejected", name)
+		require.Empty(t, filename)
+	}
+}
+
+// TestWorkingDirectory_WriteEscape verifies that the containment check is actually
+// enforced on the public entry points, not just in the private helper.
+func TestWorkingDirectory_WriteEscape(t *testing.T) {
+
+	base := t.TempDir()
+	inner := filepath.Join(base, "work")
+	require.NoError(t, os.Mkdir(inner, 0700))
+
+	wd := NewWorkingDirectory(inner, time.Minute, 10)
+	t.Cleanup(wd.Close)
+
+	escape := filepath.Join("..", "escaped.txt")
+
+	require.Error(t, wd.Write(escape, strings.NewReader("PWNED")))
+	require.False(t, wd.Exists(escape))
+
+	_, err := wd.Open(escape)
+	require.Error(t, err)
+
+	// Nothing may have been written outside the working folder
+	_, err = os.Stat(filepath.Join(base, "escaped.txt"))
+	require.True(t, os.IsNotExist(err), "must not write outside the working directory")
 }
 
 func TestWorkingDirectory_WriteExistsOpen(t *testing.T) {
@@ -91,8 +131,7 @@ func TestWorkingDirectory_WriteReplaceTriggersListener(t *testing.T) {
 	require.True(t, wd.Exists("a.txt"))
 }
 
-// TestWorkingDirectory_Remove confirms that Remove deletes the file from disk
-// (via the cache's deletion listener, which fires asynchronously).
+// TestWorkingDirectory_Remove confirms that Remove deletes the file from disk.
 func TestWorkingDirectory_Remove(t *testing.T) {
 	wd := NewWorkingDirectory(t.TempDir(), time.Minute, 10)
 	t.Cleanup(wd.Close)
@@ -117,4 +156,52 @@ func TestWorkingDirectory_RemoveAllAndClose(t *testing.T) {
 	require.NoError(t, wd.Write("b.txt", strings.NewReader("BBB")))
 
 	require.NotPanics(t, wd.RemoveAll)
+}
+
+// TestWorkingDirectory_CloseRemovesFiles verifies that Close actually deletes the
+// working files. The cache notifies its deletion listener asynchronously, so a
+// Clear that only queues those notifications would be undone by the Close that
+// immediately follows it, stranding every file on disk.
+func TestWorkingDirectory_CloseRemovesFiles(t *testing.T) {
+
+	dir := t.TempDir()
+	wd := NewWorkingDirectory(dir, time.Minute, 10)
+
+	require.NoError(t, wd.Write("a.txt", strings.NewReader("AAA")))
+	require.NoError(t, wd.Write("b.txt", strings.NewReader("BBB")))
+
+	wd.Close()
+
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	require.Empty(t, entries, "Close must leave no files behind")
+}
+
+// TestWorkingDirectory_RemoveIsSynchronous verifies that the file is gone from disk
+// as soon as Remove returns, rather than whenever the cache drains its write buffer.
+func TestWorkingDirectory_RemoveIsSynchronous(t *testing.T) {
+
+	wd := NewWorkingDirectory(t.TempDir(), time.Minute, 10)
+	t.Cleanup(wd.Close)
+
+	require.NoError(t, wd.Write("a.txt", strings.NewReader("AAA")))
+	require.True(t, wd.Exists("a.txt"))
+
+	wd.Remove("a.txt")
+	require.False(t, wd.Exists("a.txt"))
+}
+
+// TestIsWorkingFileFor verifies that a working file is matched to the original it
+// was generated from, and never to a different original that merely shares a prefix.
+func TestIsWorkingFileFor(t *testing.T) {
+
+	require.True(t, isWorkingFileFor("abc", "abc"))
+	require.True(t, isWorkingFileFor("abc.webp", "abc"))
+	require.True(t, isWorkingFileFor("abc_w300_h300.webp", "abc"))
+	require.True(t, isWorkingFileFor("file.txt.txt", "file.txt"))
+
+	require.False(t, isWorkingFileFor("abcdef.webp", "abc"))
+	require.False(t, isWorkingFileFor("abcdef_w300.webp", "abc"))
+	require.False(t, isWorkingFileFor("xyz.webp", "abc"))
+	require.False(t, isWorkingFileFor("file.txt2.txt", "file.txt"))
 }

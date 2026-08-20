@@ -15,5 +15,10 @@ func (ms MediaServer) Delete(filename string) error {
 		return derp.Wrap(err, location, "Unable to remove media files in 'cache' filesystem", filename)
 	}
 
+	// Purge the local working copies too. Serve checks the working directory FIRST,
+	// so leaving them behind keeps a deleted file servable -- and because Open resets
+	// the TTL on every request, a file that is still being requested never expires.
+	ms.working.RemoveByOriginal(filename)
+
 	return nil
 }

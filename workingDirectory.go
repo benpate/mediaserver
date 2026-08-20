@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/benpate/derp"
@@ -63,7 +64,14 @@ func NewWorkingDirectory(folder string, ttl time.Duration, capacity int) *Workin
 
 // Exists returns TRUE if the file exists in the working directory
 func (wd *WorkingDirectory) Exists(name string) bool {
-	_, err := os.Stat(wd.filename(name))
+
+	filename, err := wd.filename(name)
+
+	if err != nil {
+		return false
+	}
+
+	_, err = os.Stat(filename)
 	return err == nil
 }
 
@@ -72,10 +80,15 @@ func (wd *WorkingDirectory) Write(name string, reader io.Reader) error {
 
 	const location = "mediaserver.WorkingDirectory.Write"
 
-	filename := wd.filename(name)
+	filename, err := wd.filename(name)
 
-	// Open the file
-	writer, err := os.Create(filename)
+	if err != nil {
+		return derp.Wrap(err, location, "Invalid working filename", name)
+	}
+
+	// Open the file. filename comes from wd.filename, which rejects any name that is
+	// not contained by the working folder.
+	writer, err := os.Create(filename) // #nosec G304
 
 	if err != nil {
 		return derp.Wrap(err, location, "Creating file", filename)
@@ -110,8 +123,15 @@ func (wd *WorkingDirectory) Open(name string) (*os.File, error) {
 
 	const location = "mediaserver.WorkingDirectory.Open"
 
-	// Try to open the file.
-	file, err := os.Open(wd.filename(name))
+	filename, err := wd.filename(name)
+
+	if err != nil {
+		return nil, derp.Wrap(err, location, "Invalid working filename", name)
+	}
+
+	// Try to open the file. filename comes from wd.filename, which rejects any name
+	// that is not contained by the working folder.
+	file, err := os.Open(filename) // #nosec G304
 
 	if err != nil {
 		return nil, derp.Wrap(err, location, "Opening file", name)
@@ -125,17 +145,50 @@ func (wd *WorkingDirectory) Open(name string) (*os.File, error) {
 }
 
 // Remove deletes a file from the working directory
-// This triggers the onDelete event for the file.
 func (wd *WorkingDirectory) Remove(name string) {
-	// The cache key is the bare name (matching Write); onDelete joins it with
-	// the folder to find the file on disk.
+
+	const location = "mediaserver.WorkingDirectory.Remove"
+
+	// The cache key is the bare name (matching Write); remove joins it with the
+	// folder to find the file on disk. Deleting the file before dropping the cache
+	// entry keeps the removal synchronous -- see RemoveByOriginal.
+	wd.remove(name, location)
 	wd.cache.Delete(name)
 }
 
+// RemoveByOriginal deletes every working file that was generated from the named
+// original file.
+func (wd *WorkingDirectory) RemoveByOriginal(original string) {
+
+	const location = "mediaserver.WorkingDirectory.RemoveByOriginal"
+
+	wd.cache.DeleteByFunc(func(key string, _ int64) bool {
+
+		if !isWorkingFileFor(key, original) {
+			return false
+		}
+
+		// Delete from disk HERE rather than leaving it to the onDelete listener.
+		// Otter queues deletion notifications onto a write buffer and drains them on
+		// a background goroutine, and until that happens the file is still on disk --
+		// and a working file that is on disk is still servable.
+		wd.remove(key, location)
+		return true
+	})
+}
+
 // RemoveAll deletes all files from the working directory
-// This should trigger the onDelete event for each file.
 func (wd *WorkingDirectory) RemoveAll() {
-	wd.cache.Clear()
+
+	const location = "mediaserver.WorkingDirectory.RemoveAll"
+
+	// Delete each file from disk directly. cache.Clear only *queues* the deletion
+	// notifications, so the Clear-then-Close sequence in Close would shut the
+	// background processor down before it ever removed a single file.
+	wd.cache.DeleteByFunc(func(key string, _ int64) bool {
+		wd.remove(key, location)
+		return true
+	})
 }
 
 // Close shuts down the working directory, all background processes, and deletes all files from the filesystem
@@ -183,12 +236,58 @@ func (wd *WorkingDirectory) onDelete(key string, _ int64, cause otter.DeletionCa
 	}
 
 	// Delete the file from the filesystem
-	if err := os.Remove(wd.filename(key)); err != nil {
-		derp.Report(derp.Wrap(err, location, "Deleting file", key, cause))
+	wd.remove(key, location)
+}
+
+// remove deletes a working file from the filesystem, reporting (but not returning)
+// any error. A file that is already gone is not an error: eviction is notified
+// asynchronously, so it routinely arrives after RemoveByOriginal has already
+// deleted the same file.
+func (wd *WorkingDirectory) remove(name string, location string) {
+
+	// Only names that passed the containment check in Write or Open can reach the
+	// cache, so a failure here means the cache was populated some other way.
+	filename, err := wd.filename(name)
+
+	if err != nil {
+		derp.Report(derp.Wrap(err, location, "Invalid working filename", name))
+		return
+	}
+
+	if err := os.Remove(filename); err != nil && !os.IsNotExist(err) {
+		derp.Report(derp.Wrap(err, location, "Deleting file", name))
 	}
 }
 
-// filename (correctly) appends the provided name to the working directory folder
-func (wd *WorkingDirectory) filename(name string) string {
-	return filepath.Join(wd.folder, name)
+// filename joins the provided name to the working directory folder, failing when
+// the name would resolve outside of it.
+func (wd *WorkingDirectory) filename(name string) (string, error) {
+
+	const location = "mediaserver.WorkingDirectory.filename"
+
+	// RULE: The name must stay inside the working folder. filepath.Join *cleans* its
+	// result, so a name like "../secret" resolves to a sibling directory silently,
+	// with no error for the caller to catch. filepath.IsLocal rejects that, along
+	// with absolute paths and (on Windows) reserved device names.
+	if !filepath.IsLocal(name) {
+		return "", derp.BadRequest(location, "Working filename must be contained by the working directory", name)
+	}
+
+	return filepath.Join(wd.folder, name), nil
+}
+
+// isWorkingFileFor returns TRUE if a working filename was generated from the named
+// original file. FileSpec.WorkingFilename appends the processing arguments (each
+// introduced by "_") and the extension (introduced by ".") to the original name, so
+// a bare prefix test is not enough -- it would also match a *different* original
+// whose name merely begins the same way ("abc" vs "abcdef").
+func isWorkingFileFor(workingFilename string, original string) bool {
+
+	remainder, found := strings.CutPrefix(workingFilename, original)
+
+	if !found {
+		return false
+	}
+
+	return (remainder == "") || strings.HasPrefix(remainder, "_") || strings.HasPrefix(remainder, ".")
 }

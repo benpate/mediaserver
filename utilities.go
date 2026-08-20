@@ -219,6 +219,8 @@ func round100(number int) int {
 	return result * 100
 }
 
+// first returns the first non-zero value in the list, or the zero value if they are
+// all zero.
 func first[T comparable](values ...T) T {
 
 	var zero T

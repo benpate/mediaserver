@@ -9,9 +9,8 @@ import (
 )
 
 // Serve locates the file, processes it if necessary, and returns it to the caller.
-// If the filespec.Cache is set to FALSE, then the file will be processed and returned.
-// If the filespec.Cache is set to TRUE, then the processed file will be retrieved
-// from the cache (if possible) and the processed file will be stored in the cache.
+// The result is read from (and added to) the processed cache and the local working
+// directory, generating each layer only when it is missing.
 func (ms MediaServer) Serve(responseWriter http.ResponseWriter, request *http.Request, filespec FileSpec) error {
 
 	const location = "mediaserver.Serve"
@@ -80,6 +79,8 @@ func (ms MediaServer) ServeOriginal(responseWriter http.ResponseWriter, _ *http.
 	return nil
 }
 
+// ensureWorkingFileExists guarantees that a local working copy of the requested
+// file is present, generating the processed version first when it is missing.
 func (ms MediaServer) ensureWorkingFileExists(ctx context.Context, filespec FileSpec) error {
 
 	const location = "mediaserver.ensureWorkingFileExists"

@@ -13,6 +13,7 @@ const defaultTimeout = 5 * time.Minute
 // Option configures a MediaServer when it is created with New.
 type Option func(*options)
 
+// options is the resolved configuration for a MediaServer.
 type options struct {
 	timeout         time.Duration
 	allowedHosts    []string

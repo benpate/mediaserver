@@ -87,6 +87,8 @@ func (filespec *FileSpec) WorkingFilename() string {
 	return buffer.String()
 }
 
+// writeFilenameArgs appends the processing arguments (width, height, bitrate) that
+// distinguish one generated version of a file from another.
 func (filespec *FileSpec) writeFilenameArgs(buffer *strings.Builder) {
 
 	switch filespec.MimeCategory() {
