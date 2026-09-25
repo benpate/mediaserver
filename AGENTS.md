@@ -12,4 +12,8 @@
 
 - **Working filenames must be contained by the working folder.** `WorkingDirectory.filename` rejects anything `filepath.IsLocal` refuses, because `filepath.Join` *cleans* `../escape` into a real path outside the folder instead of failing. `FileSpec.Filename` is caller-supplied, so this is the only thing standing between an untrusted name and an arbitrary write.
 
+- **`isWorkingFileFor` must stay stricter than `HasPrefix`.** A working name is `Filename` + `_args` + `.ext`, so a plain prefix test would let `abc` match `abcdef.webp` and delete or serve the wrong file.
+
+- **`FileSpec.Cache` is exported, documented, and read by nothing.** `Serve` always goes through the processed cache and the working directory, so the field has no effect. Emissary believes otherwise — `build/step_ViewAttachment.go` assigns it from the template's `cache:` argument and `model/attachmentRules.go` hard-codes it true — which means a template asking for `cache: false` is silently cached anyway. Implementing it is a design decision, not a mechanical fix: `Cache: false` could mean bypass the processed cache, bypass the working directory, both, or change the `Cache-Control`/`ETag` headers, and guessing risks invalidating existing cache keys. If the answer is that the field was a mistake, mark it `// Deprecated:` rather than deleting it, and drop the Emissary assignment.
+
 - **FFmpeg is required for media transforms.** Non-media files are copied through verbatim, but image/audio/video processing fails cleanly if `ffmpeg` is not on the `PATH`.
