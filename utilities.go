@@ -13,16 +13,13 @@ import (
 	"github.com/spf13/afero"
 )
 
-// getCoverPhoto fetches a remote cover image, processes it into a reasonable
-// size for an album cover photo, then returns the filename of the resulting
-// file (in the temp directory). The remote image is downloaded by Go (not
-// FFmpeg) through an SSRF-hardened client, so FFmpeg only ever reads a local
-// file. It is the caller's responsibility to delete the file when it is no
-// longer needed.
+// getCoverPhoto downloads a remote cover image, crops and scales it into an album cover, and
+// returns the name of the resulting temp file, which the caller must delete when finished.
 func (ms MediaServer) getCoverPhoto(ctx context.Context, rawURL string) (string, error) {
 
 	const location = "mediaserver.getCoverPhoto"
 
+	// RULE: FFmpeg must be installed to process the cover image
 	if !ffmpegInstalled() {
 		return "", derp.Internal(location, "FFmpeg is not installed on this server")
 	}
@@ -36,6 +33,7 @@ func (ms MediaServer) getCoverPhoto(ctx context.Context, rawURL string) (string,
 
 	defer removeTempFile(sourceFilename, location)
 
+	// Create the temp file that will hold the finished cover
 	tempFilename, err := getTempFilename(".jpg")
 
 	if err != nil {
@@ -63,8 +61,7 @@ func (ms MediaServer) getCoverPhoto(ctx context.Context, rawURL string) (string,
 	return tempFilename, nil
 }
 
-// removeTempFile deletes a temporary file, reporting (but not returning) any
-// error — a failed cleanup of a temp file should not abort the caller.
+// removeTempFile deletes a temporary file, reporting (but not returning) any error.
 func removeTempFile(filename string, location string) {
 	if err := os.Remove(filename); err != nil {
 		derp.Report(derp.Wrap(err, location, "Unable to remove temporary file", filename))
@@ -75,20 +72,20 @@ func removeTempFile(filename string, location string) {
 // prevent an untrusted server from forcing an unbounded download.
 const maxCoverBytes = 16 << 20 // 16 MB
 
-// fetchCover downloads a remote cover image to a local temp file using the
-// SSRF-hardened remote client. Only http/https URLs are permitted; the
-// configured host allow-list and private-IP policy are enforced by the client,
-// and the download is size-limited.
+// fetchCover downloads a remote http or https cover image into a local temp file,
+// through the SSRF-guarded remote client, and returns the file's name.
 func (ms MediaServer) fetchCover(ctx context.Context, rawURL string) (string, error) {
 
 	const location = "mediaserver.fetchCover"
 
+	// Parse the (untrusted) cover URL
 	parsed, err := url.Parse(rawURL)
 
 	if err != nil {
 		return "", derp.BadRequest(location, "Invalid cover URL", rawURL)
 	}
 
+	// RULE: Only http and https URLs may be fetched
 	if (parsed.Scheme != "http") && (parsed.Scheme != "https") {
 		return "", derp.Forbidden(location, "Cover URL must use http or https", rawURL)
 	}
@@ -123,18 +120,18 @@ func (ms MediaServer) fetchCover(ctx context.Context, rawURL string) (string, er
 		return "", derp.Wrap(err, location, "Unable to fetch cover image", rawURL)
 	}
 
+	// Judge a book by its cover.
 	return tempFile.Name(), nil
 }
 
-// getTempFilename atomically creates an empty temporary file and returns its
-// name. Creating the file (rather than just generating a name) closes the
-// symlink race in the shared temp directory: os.CreateTemp uses O_EXCL and a
-// random name. Callers pass "-y" to ffmpeg so it overwrites this placeholder,
-// and it is the caller's responsibility to delete the file when finished.
+// getTempFilename creates an empty temporary file and returns its name.
+// The caller must delete the file when finished.
 func getTempFilename(extension string) (string, error) {
 
 	const location = "mediaserver.getTempFilename"
 
+	// Create the file rather than just a name, which closes the symlink race in the shared temp
+	// directory (os.CreateTemp uses O_EXCL). Callers pass "-y" so ffmpeg overwrites it.
 	file, err := os.CreateTemp("", "mediaserver-*"+extension)
 
 	if err != nil {
@@ -147,6 +144,7 @@ func getTempFilename(extension string) (string, error) {
 		return "", derp.Wrap(err, location, "Unable to close temporary file", name)
 	}
 
+	// A blank canvas.
 	return name, nil
 }
 

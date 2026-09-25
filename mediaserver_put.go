@@ -36,5 +36,7 @@ func (ms MediaServer) Put(filename string, file io.Reader) error {
 	if err := destination.Close(); err != nil {
 		return derp.Wrap(err, location, "Unable to close destination file", filename)
 	}
+
+	// Signed, sealed, delivered.
 	return nil
 }

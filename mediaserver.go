@@ -1,5 +1,3 @@
-// Package mediaserver manages original and processed media files on a
-// filesystem, using FFmpeg to transform images, audio, and video on demand.
 package mediaserver
 
 import (

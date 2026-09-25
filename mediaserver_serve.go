@@ -8,9 +8,8 @@ import (
 	"github.com/benpate/derp"
 )
 
-// Serve locates the file, processes it if necessary, and returns it to the caller.
-// The result is read from (and added to) the processed cache and the local working
-// directory, generating each layer only when it is missing.
+// Serve locates the file, processes it if necessary, and returns it to the caller, reading
+// from (and adding to) the processed cache and the working directory along the way.
 func (ms MediaServer) Serve(responseWriter http.ResponseWriter, request *http.Request, filespec FileSpec) error {
 
 	const location = "mediaserver.Serve"
@@ -103,6 +102,8 @@ func (ms MediaServer) ensureWorkingFileExists(ctx context.Context, filespec File
 	if err != nil {
 		return derp.Wrap(err, location, "Unable to open processed file", filespec)
 	}
+
+	defer derp.ReportFunc(processedFile.Close)
 
 	// Copy the (probably remote) processed file to a (definitely local) working file
 	if err := ms.working.Write(workingFilename, processedFile); err != nil {

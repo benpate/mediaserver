@@ -13,9 +13,9 @@ import (
 
 // WorkingDirectory manages files added and removed to the working directory.
 type WorkingDirectory struct {
-	folder  string
-	cache   otter.Cache[string, int64]
-	ttl     time.Duration
+	folder  string                     // local folder that holds the working files
+	cache   otter.Cache[string, int64] // expiration time (unix seconds) of each working file, by name
+	ttl     time.Duration              // how long an unused working file is kept
 	done    chan struct{} // closed by Close to signal the background goroutine to stop
 	stopped chan struct{} // closed by the background goroutine once it has exited
 }
@@ -26,6 +26,7 @@ func NewWorkingDirectory(folder string, ttl time.Duration, capacity int) *Workin
 
 	const location = "mediaserver.NewWorkingDirectory"
 
+	// Default to the system temp directory
 	if folder == "" {
 		folder = os.TempDir()
 	}
@@ -114,6 +115,8 @@ func (wd *WorkingDirectory) Write(name string, reader io.Reader) error {
 
 	// Add the file to the cache
 	wd.cache.Set(name, time.Now().Add(wd.ttl).Unix())
+
+	// It's all working out.
 	return nil
 }
 
@@ -168,10 +171,8 @@ func (wd *WorkingDirectory) RemoveByOriginal(original string) {
 			return false
 		}
 
-		// Delete from disk HERE rather than leaving it to the onDelete listener.
-		// Otter queues deletion notifications onto a write buffer and drains them on
-		// a background goroutine, and until that happens the file is still on disk --
-		// and a working file that is on disk is still servable.
+		// Delete from disk HERE rather than leaving it to the onDelete listener. Otter
+		// notifies that listener asynchronously, and until it runs the file is still servable.
 		wd.remove(key, location)
 		return true
 	})
@@ -239,10 +240,8 @@ func (wd *WorkingDirectory) onDelete(key string, _ int64, cause otter.DeletionCa
 	wd.remove(key, location)
 }
 
-// remove deletes a working file from the filesystem, reporting (but not returning)
-// any error. A file that is already gone is not an error: eviction is notified
-// asynchronously, so it routinely arrives after RemoveByOriginal has already
-// deleted the same file.
+// remove deletes a working file from the filesystem, reporting (but not returning) any
+// error. A file that is already gone is not an error.
 func (wd *WorkingDirectory) remove(name string, location string) {
 
 	// Only names that passed the containment check in Write or Open can reach the
@@ -254,6 +253,8 @@ func (wd *WorkingDirectory) remove(name string, location string) {
 		return
 	}
 
+	// Eviction is notified asynchronously, so it routinely arrives after
+	// RemoveByOriginal has already deleted the same file.
 	if err := os.Remove(filename); err != nil && !os.IsNotExist(err) {
 		derp.Report(derp.Wrap(err, location, "Deleting file", name))
 	}
@@ -265,22 +266,17 @@ func (wd *WorkingDirectory) filename(name string) (string, error) {
 
 	const location = "mediaserver.WorkingDirectory.filename"
 
-	// RULE: The name must stay inside the working folder. filepath.Join *cleans* its
-	// result, so a name like "../secret" resolves to a sibling directory silently,
-	// with no error for the caller to catch. filepath.IsLocal rejects that, along
-	// with absolute paths and (on Windows) reserved device names.
+	// RULE: The name must stay inside the working folder. filepath.Join *cleans* "../secret"
+	// into a sibling directory without an error, so filepath.IsLocal has to reject it first.
 	if !filepath.IsLocal(name) {
 		return "", derp.BadRequest(location, "Working filename must be contained by the working directory", name)
 	}
 
+	// Home sweet home.
 	return filepath.Join(wd.folder, name), nil
 }
 
-// isWorkingFileFor returns TRUE if a working filename was generated from the named
-// original file. FileSpec.WorkingFilename appends the processing arguments (each
-// introduced by "_") and the extension (introduced by ".") to the original name, so
-// a bare prefix test is not enough -- it would also match a *different* original
-// whose name merely begins the same way ("abc" vs "abcdef").
+// isWorkingFileFor returns TRUE if a working filename was generated from the named original file.
 func isWorkingFileFor(workingFilename string, original string) bool {
 
 	remainder, found := strings.CutPrefix(workingFilename, original)
@@ -289,5 +285,7 @@ func isWorkingFileFor(workingFilename string, original string) bool {
 		return false
 	}
 
+	// The original name must end where a processing argument ("_") or the extension (".") begins,
+	// so that "abc" does not also match a working file for "abcdef".
 	return (remainder == "") || strings.HasPrefix(remainder, "_") || strings.HasPrefix(remainder, ".")
 }

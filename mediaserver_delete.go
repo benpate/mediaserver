@@ -7,10 +7,12 @@ func (ms MediaServer) Delete(filename string) error {
 
 	const location = "mediaserver.Delete"
 
+	// Remove the original upload
 	if err := ms.original.Remove(filename); err != nil {
 		return derp.Wrap(err, location, "Unable to remove media file in 'original' filesystem", filename)
 	}
 
+	// Remove every processed version from the cache
 	if err := ms.processed.RemoveAll(filename); err != nil {
 		return derp.Wrap(err, location, "Unable to remove media files in 'cache' filesystem", filename)
 	}
@@ -20,5 +22,6 @@ func (ms MediaServer) Delete(filename string) error {
 	// the TTL on every request, a file that is still being requested never expires.
 	ms.working.RemoveByOriginal(filename)
 
+	// Gone, but not forgotten.
 	return nil
 }

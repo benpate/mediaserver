@@ -11,18 +11,17 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// ffmpegInstalled reports whether ffmpeg is available. It is a package variable
-// (rather than a direct call to ffmpeg.IsInstalled) so tests can override it to
+// ffmpegInstalled reports whether ffmpeg is available. Tests replace it to
 // exercise the "ffmpeg missing" paths on a machine that has ffmpeg installed.
 var ffmpegInstalled = ffmpeg.IsInstalled
 
-// Process decodes a media file and applies the processing steps in the FileSpec,
-// writing the result to output. The work is bounded by ctx; if ctx has no
-// deadline, a default timeout is applied.
+// Process applies the processing steps in the FileSpec to the original file and writes
+// the result to output, bounded by ctx or by the default timeout when ctx has no deadline.
 func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.Writer) error {
 
 	const location = "mediaserver.Process"
 
+	// Bound the work, so a runaway FFmpeg process cannot hang forever
 	ctx, cancel := ms.options.withTimeout(ctx)
 	defer cancel()
 
@@ -46,27 +45,27 @@ func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.
 		return nil
 	}
 
-	// Otherwise this is an Audio/Video/Image file that FFmpeg can process.
+	// RULE: Otherwise this is an Audio/Video/Image file, which only FFmpeg can process.
 	if !ffmpegInstalled() {
 		return derp.Internal(location, "FFmpeg is not installed on this server")
 	}
 
+	// Transcode the media file into the output
 	if err := ms.processMedia(ctx, filespec, originalFile, output); err != nil {
 		return derp.Wrap(err, location, "Unable to process media file", filespec)
 	}
 
+	// Lights, camera, action.
 	return nil
 }
 
-// processMedia runs the FFmpeg pipeline for a media file: it stages the original
-// as a local temp file, transcodes it (per the FileSpec) into a temp output
-// file, and copies the result to output. FFmpeg needs real files — not pipes —
-// so it can seek to read and write metadata.
+// processMedia transcodes a media file with FFmpeg, per the FileSpec, and copies the result to output.
 func (ms MediaServer) processMedia(ctx context.Context, filespec FileSpec, originalFile io.Reader, output io.Writer) error {
 
 	const location = "mediaserver.processMedia"
 
 	// Stage the original as a local temp input file (removed on exit).
+	// FFmpeg needs real files, not pipes, so it can seek to read and write metadata.
 	tempInputFilename, err := writeTempFile(originalFile, filespec.OriginalExtension)
 
 	if err != nil {
@@ -108,14 +107,12 @@ func (ms MediaServer) processMedia(ctx context.Context, filespec FileSpec, origi
 		return derp.Wrap(err, location, "Unable to copy output to destination", tempOutputFilename)
 	}
 
+	// That's a wrap.
 	return nil
 }
 
-// processArguments assembles the FFmpeg command-line arguments to transcode the
-// staged input file into the output file. When the FileSpec carries cover art,
-// the image is downloaded and added as a second input; the returned cleanup
-// removes that temp file (a no-op when there is no cover art) and must be called
-// by the caller.
+// processArguments returns the FFmpeg arguments to transcode inputFilename into outputFilename,
+// and a cleanup function that the caller must call to remove any downloaded cover art.
 func (ms MediaServer) processArguments(ctx context.Context, filespec FileSpec, inputFilename string, outputFilename string) ([]string, func()) {
 
 	const location = "mediaserver.processArguments"
@@ -127,6 +124,7 @@ func (ms MediaServer) processArguments(ctx context.Context, filespec FileSpec, i
 	// -y overwrites the pre-created temp output file; input #0 is the staged original.
 	args := []string{"-y", "-i", inputFilename}
 
+	// Add metadata fields to the output, including any cover art
 	if len(filespec.Metadata) > 0 {
 
 		// Special case for music cover art: download it and add it as input #1.
@@ -186,10 +184,8 @@ func (ms MediaServer) ensureProcessedFileExists(ctx context.Context, filespec Fi
 	}
 
 	// Create a new processed file and write the processed file into the cache.
-	// NOTE: a mid-Process failure can leave a partial file in the cache; the error
-	// path below Removes it, but a crash would not. Writing to a temp file and
-	// renaming would be more robust, except the cache may be S3-backed, where
-	// rename is not atomic (see Put).
+	// NOTE: the error paths below remove a partial file, but a crash would not. A temp file
+	// and rename would be safer, except rename is not atomic on an S3-backed cache (see Put).
 	cachedFile, err := ms.processed.Create(filespec.ProcessedPath())
 
 	if err != nil {
@@ -207,7 +203,12 @@ func (ms MediaServer) ensureProcessedFileExists(ctx context.Context, filespec Fi
 		return derp.Wrap(err, location, "Unable to process original file", filespec)
 	}
 
-	derp.Report(cachedFile.Close())
+	// RULE: A failed Close is a failed write. A remote (S3) cache uploads the file here, so
+	// what it left behind may be missing or truncated, and must not be served as the result.
+	if err := cachedFile.Close(); err != nil {
+		derp.Report(ms.processed.Remove(filespec.ProcessedPath()))
+		return derp.Wrap(err, location, "Unable to save processed file", filespec)
+	}
 
 	// Great success.
 	return nil
