@@ -63,6 +63,46 @@ func NewWorkingDirectory(folder string, ttl time.Duration, capacity int) *Workin
 	return result
 }
 
+// onDelete is called when the file is evicted from the cache, and
+// is responsible for deleting the working file from the filesystem
+func (wd *WorkingDirectory) onDelete(key string, _ int64, cause otter.DeletionCause) {
+
+	const location = "mediaserver.WorkingDirectory.onDelete"
+
+	// RULE: Ignore "Replaced"  events. The value is still there :)
+	if cause == otter.Replaced {
+		return
+	}
+
+	// Delete the file from the filesystem
+	wd.remove(key, location)
+}
+
+// start runs a background process to actively remove files from the working directory that have expired
+func (wd *WorkingDirectory) start() {
+
+	defer close(wd.stopped)
+
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+
+		case <-wd.done:
+			return
+
+		case now := <-ticker.C:
+
+			expiration := now.Unix()
+
+			wd.cache.DeleteByFunc(func(_ string, value int64) bool {
+				return (value < expiration)
+			})
+		}
+	}
+}
+
 // Exists returns TRUE if the file exists in the working directory
 func (wd *WorkingDirectory) Exists(name string) bool {
 
@@ -178,6 +218,14 @@ func (wd *WorkingDirectory) RemoveByOriginal(original string) {
 	})
 }
 
+// Close shuts down the working directory, all background processes, and deletes all files from the filesystem
+func (wd *WorkingDirectory) Close() {
+	close(wd.done)
+	<-wd.stopped // Wait for the background goroutine to exit before touching the cache
+	wd.RemoveAll()
+	wd.cache.Close()
+}
+
 // RemoveAll deletes all files from the working directory
 func (wd *WorkingDirectory) RemoveAll() {
 
@@ -190,54 +238,6 @@ func (wd *WorkingDirectory) RemoveAll() {
 		wd.remove(key, location)
 		return true
 	})
-}
-
-// Close shuts down the working directory, all background processes, and deletes all files from the filesystem
-func (wd *WorkingDirectory) Close() {
-	close(wd.done)
-	<-wd.stopped // Wait for the background goroutine to exit before touching the cache
-	wd.RemoveAll()
-	wd.cache.Close()
-}
-
-// start runs a background process to actively remove files from the working directory that have expired
-func (wd *WorkingDirectory) start() {
-
-	defer close(wd.stopped)
-
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-
-		case <-wd.done:
-			return
-
-		case now := <-ticker.C:
-
-			expiration := now.Unix()
-
-			wd.cache.DeleteByFunc(func(_ string, value int64) bool {
-				return (value < expiration)
-			})
-		}
-	}
-}
-
-// onDelete is called when the file is evicted from the cache, and
-// is responsible for deleting the working file from the filesystem
-func (wd *WorkingDirectory) onDelete(key string, _ int64, cause otter.DeletionCause) {
-
-	const location = "mediaserver.WorkingDirectory.onDelete"
-
-	// RULE: Ignore "Replaced"  events. The value is still there :)
-	if cause == otter.Replaced {
-		return
-	}
-
-	// Delete the file from the filesystem
-	wd.remove(key, location)
 }
 
 // remove deletes a working file from the filesystem, reporting (but not returning) any

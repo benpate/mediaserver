@@ -51,33 +51,6 @@ func (ms MediaServer) Serve(responseWriter http.ResponseWriter, request *http.Re
 	return nil
 }
 
-// ServeOriginal returns the original, unprocessed file that was added to the mediaserver
-func (ms MediaServer) ServeOriginal(responseWriter http.ResponseWriter, _ *http.Request, filename string) error {
-
-	const location = "mediaserver.ServeOriginal"
-
-	// Load the original file
-	originalFile, err := ms.original.Open(filename)
-
-	if err != nil {
-		return derp.Wrap(err, location, "Unable to open working file", filename)
-	}
-
-	defer derp.ReportFunc(originalFile.Close)
-
-	// Write the HTTP response
-	responseWriter.Header().Set("Content-Type", "application/octet-stream")
-	responseWriter.WriteHeader(http.StatusOK)
-
-	// Copy the original file directly to the response. We don't need any fancy processing.
-	if _, err := io.Copy(responseWriter, originalFile); err != nil {
-		return derp.Wrap(err, location, "Unable to copy original file to response", filename)
-	}
-
-	// You got served.
-	return nil
-}
-
 // ensureWorkingFileExists guarantees that a local working copy of the requested
 // file is present, generating the processed version first when it is missing.
 func (ms MediaServer) ensureWorkingFileExists(ctx context.Context, filespec FileSpec) error {
@@ -111,5 +84,32 @@ func (ms MediaServer) ensureWorkingFileExists(ctx context.Context, filespec File
 	}
 
 	// Triumph
+	return nil
+}
+
+// ServeOriginal returns the original, unprocessed file that was added to the mediaserver
+func (ms MediaServer) ServeOriginal(responseWriter http.ResponseWriter, _ *http.Request, filename string) error {
+
+	const location = "mediaserver.ServeOriginal"
+
+	// Load the original file
+	originalFile, err := ms.original.Open(filename)
+
+	if err != nil {
+		return derp.Wrap(err, location, "Unable to open working file", filename)
+	}
+
+	defer derp.ReportFunc(originalFile.Close)
+
+	// Write the HTTP response
+	responseWriter.Header().Set("Content-Type", "application/octet-stream")
+	responseWriter.WriteHeader(http.StatusOK)
+
+	// Copy the original file directly to the response. We don't need any fancy processing.
+	if _, err := io.Copy(responseWriter, originalFile); err != nil {
+		return derp.Wrap(err, location, "Unable to copy original file to response", filename)
+	}
+
+	// You got served.
 	return nil
 }

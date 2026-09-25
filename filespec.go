@@ -34,24 +34,24 @@ func (filespec *FileSpec) DownloadFilename() string {
 	return filespec.Filename + filespec.Extension
 }
 
-// OriginalMimeType returns the mime type of the original (source) file.
-func (filespec *FileSpec) OriginalMimeType() string {
-	return mime.TypeByExtension(filespec.OriginalExtension)
-}
-
 // OriginalMimeCategory returns the first half of the original file's mime type.
 func (filespec *FileSpec) OriginalMimeCategory() string {
 	return list.Slash(filespec.OriginalMimeType()).First()
 }
 
-// MimeType returns the mime type of the requested (output) file.
-func (filespec *FileSpec) MimeType() string {
-	return mime.TypeByExtension(filespec.Extension)
+// OriginalMimeType returns the mime type of the original (source) file.
+func (filespec *FileSpec) OriginalMimeType() string {
+	return mime.TypeByExtension(filespec.OriginalExtension)
 }
 
 // MimeCategory returns the first half of the mime type
 func (filespec *FileSpec) MimeCategory() string {
 	return list.Slash(filespec.MimeType()).First()
+}
+
+// MimeType returns the mime type of the requested (output) file.
+func (filespec *FileSpec) MimeType() string {
+	return mime.TypeByExtension(filespec.Extension)
 }
 
 // ProcessedPath returns the complete path (within the cache directory) to the file requested by this FileSpec

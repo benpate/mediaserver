@@ -15,6 +15,56 @@ import (
 // exercise the "ffmpeg missing" paths on a machine that has ffmpeg installed.
 var ffmpegInstalled = ffmpeg.IsInstalled
 
+// ensureProcessedFileExists writes a new processed version of the file into the cache
+func (ms MediaServer) ensureProcessedFileExists(ctx context.Context, filespec FileSpec) error {
+
+	const location = "mediaserver.ensureProcessedFileExists"
+
+	// If the processed file already exists, then there's nothing more to do.
+	// RULE: An EMPTY file is not a result.  Earlier versions left one behind after every failed
+	// request, and serving it would answer with no body forever.
+	if info, err := ms.processed.Stat(filespec.ProcessedPath()); (err == nil) && (info.Size() > 0) {
+		return nil
+	}
+
+	log.Trace().Str("location", location).Str("processedPath", filespec.ProcessedPath()).Msg("Processed file does not exist.  Creating...")
+
+	// Guarantee that a folder exists to put the processed file into
+	if err := ensureAferoFolderExists(ms.processed, filespec.ProcessedDir()); err != nil {
+		return derp.Wrap(err, location, "Unable to create cache folder", filespec)
+	}
+
+	// Create a new processed file and write the processed file into the cache.
+	// NOTE: the error paths below remove a partial file, but a crash would not. A temp file
+	// and rename would be safer, except rename is not atomic on an S3-backed cache (see Put).
+	cachedFile, err := ms.processed.Create(filespec.ProcessedPath())
+
+	if err != nil {
+		return derp.Wrap(err, location, "Unable to create file in mediaserver cache", filespec)
+	}
+
+	// Process the file into the cache.  Write it fully, before returning it to the caller.
+	if err := ms.Process(ctx, filespec, cachedFile); err != nil {
+
+		// RULE: Remove the file by the path it was CREATED with, never by cachedFile.Name().
+		// Through nested BasePathFs layers Name() keeps a leading slash that the outer layer does
+		// not strip, so removing by it misses, and the empty file poisons the cache.
+		derp.Report(cachedFile.Close())
+		derp.Report(ms.processed.Remove(filespec.ProcessedPath()))
+		return derp.Wrap(err, location, "Unable to process original file", filespec)
+	}
+
+	// RULE: A failed Close is a failed write. A remote (S3) cache uploads the file here, so
+	// what it left behind may be missing or truncated, and must not be served as the result.
+	if err := cachedFile.Close(); err != nil {
+		derp.Report(ms.processed.Remove(filespec.ProcessedPath()))
+		return derp.Wrap(err, location, "Unable to save processed file", filespec)
+	}
+
+	// Great success.
+	return nil
+}
+
 // Process applies the processing steps in the FileSpec to the original file and writes
 // the result to output, bounded by ctx or by the default timeout when ctx has no deadline.
 func (ms MediaServer) Process(ctx context.Context, filespec FileSpec, output io.Writer) error {
@@ -162,54 +212,4 @@ func (ms MediaServer) processArguments(ctx context.Context, filespec FileSpec, i
 	args = append(args, outputFilename)
 
 	return args, cleanup
-}
-
-// ensureProcessedFileExists writes a new processed version of the file into the cache
-func (ms MediaServer) ensureProcessedFileExists(ctx context.Context, filespec FileSpec) error {
-
-	const location = "mediaserver.ensureProcessedFileExists"
-
-	// If the processed file already exists, then there's nothing more to do.
-	// RULE: An EMPTY file is not a result.  Earlier versions left one behind after every failed
-	// request, and serving it would answer with no body forever.
-	if info, err := ms.processed.Stat(filespec.ProcessedPath()); (err == nil) && (info.Size() > 0) {
-		return nil
-	}
-
-	log.Trace().Str("location", location).Str("processedPath", filespec.ProcessedPath()).Msg("Processed file does not exist.  Creating...")
-
-	// Guarantee that a folder exists to put the processed file into
-	if err := ensureAferoFolderExists(ms.processed, filespec.ProcessedDir()); err != nil {
-		return derp.Wrap(err, location, "Unable to create cache folder", filespec)
-	}
-
-	// Create a new processed file and write the processed file into the cache.
-	// NOTE: the error paths below remove a partial file, but a crash would not. A temp file
-	// and rename would be safer, except rename is not atomic on an S3-backed cache (see Put).
-	cachedFile, err := ms.processed.Create(filespec.ProcessedPath())
-
-	if err != nil {
-		return derp.Wrap(err, location, "Unable to create file in mediaserver cache", filespec)
-	}
-
-	// Process the file into the cache.  Write it fully, before returning it to the caller.
-	if err := ms.Process(ctx, filespec, cachedFile); err != nil {
-
-		// RULE: Remove the file by the path it was CREATED with, never by cachedFile.Name().
-		// Through nested BasePathFs layers Name() keeps a leading slash that the outer layer does
-		// not strip, so removing by it misses, and the empty file poisons the cache.
-		derp.Report(cachedFile.Close())
-		derp.Report(ms.processed.Remove(filespec.ProcessedPath()))
-		return derp.Wrap(err, location, "Unable to process original file", filespec)
-	}
-
-	// RULE: A failed Close is a failed write. A remote (S3) cache uploads the file here, so
-	// what it left behind may be missing or truncated, and must not be served as the result.
-	if err := cachedFile.Close(); err != nil {
-		derp.Report(ms.processed.Remove(filespec.ProcessedPath()))
-		return derp.Wrap(err, location, "Unable to save processed file", filespec)
-	}
-
-	// Great success.
-	return nil
 }

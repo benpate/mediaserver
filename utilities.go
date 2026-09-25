@@ -61,13 +61,6 @@ func (ms MediaServer) getCoverPhoto(ctx context.Context, rawURL string) (string,
 	return tempFilename, nil
 }
 
-// removeTempFile deletes a temporary file, reporting (but not returning) any error.
-func removeTempFile(filename string, location string) {
-	if err := os.Remove(filename); err != nil {
-		derp.Report(derp.Wrap(err, location, "Unable to remove temporary file", filename))
-	}
-}
-
 // maxCoverBytes caps how many bytes are read from a remote cover image, to
 // prevent an untrusted server from forcing an unbounded download.
 const maxCoverBytes = 16 << 20 // 16 MB
@@ -122,6 +115,13 @@ func (ms MediaServer) fetchCover(ctx context.Context, rawURL string) (string, er
 
 	// Judge a book by its cover.
 	return tempFile.Name(), nil
+}
+
+// removeTempFile deletes a temporary file, reporting (but not returning) any error.
+func removeTempFile(filename string, location string) {
+	if err := os.Remove(filename); err != nil {
+		derp.Report(derp.Wrap(err, location, "Unable to remove temporary file", filename))
+	}
 }
 
 // getTempFilename creates an empty temporary file and returns its name.
