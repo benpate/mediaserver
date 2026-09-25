@@ -9,7 +9,6 @@ import (
 	"github.com/benpate/derp"
 	"github.com/benpate/mediaserver/ffmpeg"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/afero"
 )
 
 // ffmpegInstalled reports whether ffmpeg is available. It is a package variable
@@ -173,7 +172,9 @@ func (ms MediaServer) ensureProcessedFileExists(ctx context.Context, filespec Fi
 	const location = "mediaserver.ensureProcessedFileExists"
 
 	// If the processed file already exists, then there's nothing more to do.
-	if exists, _ := afero.Exists(ms.processed, filespec.ProcessedPath()); exists {
+	// RULE: An EMPTY file is not a result.  Earlier versions left one behind after every failed
+	// request, and serving it would answer with no body forever.
+	if info, err := ms.processed.Stat(filespec.ProcessedPath()); (err == nil) && (info.Size() > 0) {
 		return nil
 	}
 
@@ -195,13 +196,18 @@ func (ms MediaServer) ensureProcessedFileExists(ctx context.Context, filespec Fi
 		return derp.Wrap(err, location, "Unable to create file in mediaserver cache", filespec)
 	}
 
-	defer derp.ReportFunc(cachedFile.Close)
-
 	// Process the file into the cache.  Write it fully, before returning it to the caller.
 	if err := ms.Process(ctx, filespec, cachedFile); err != nil {
-		derp.Report(ms.processed.Remove(cachedFile.Name()))
+
+		// RULE: Remove the file by the path it was CREATED with, never by cachedFile.Name().
+		// Through nested BasePathFs layers Name() keeps a leading slash that the outer layer does
+		// not strip, so removing by it misses, and the empty file poisons the cache.
+		derp.Report(cachedFile.Close())
+		derp.Report(ms.processed.Remove(filespec.ProcessedPath()))
 		return derp.Wrap(err, location, "Unable to process original file", filespec)
 	}
+
+	derp.Report(cachedFile.Close())
 
 	// Great success.
 	return nil
