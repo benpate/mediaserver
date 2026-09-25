@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestProcess_NonMediaCopiesThrough confirms that Process copies a non-media file unchanged.
 func TestProcess_NonMediaCopiesThrough(t *testing.T) {
 	// A non-media file is copied verbatim, with no call to ffmpeg.
 	originals := afero.NewMemMapFs()
@@ -25,6 +26,7 @@ func TestProcess_NonMediaCopiesThrough(t *testing.T) {
 	require.Equal(t, content, output.Bytes())
 }
 
+// TestProcess_MissingOriginal confirms that Process fails when the original does not exist.
 func TestProcess_MissingOriginal(t *testing.T) {
 	ms := newTestServer(t, nil)
 	filespec := FileSpec{Filename: "missing.txt", OriginalExtension: ".txt", Extension: ".txt"}
@@ -33,6 +35,8 @@ func TestProcess_MissingOriginal(t *testing.T) {
 	require.Error(t, ms.Process(context.Background(), filespec, &output))
 }
 
+// TestProcess_MediaWithoutFFmpeg confirms that Process fails on a media file when ffmpeg is not
+// installed.
 func TestProcess_MediaWithoutFFmpeg(t *testing.T) {
 	// A media file cannot be processed when ffmpeg is not installed.
 	original := ffmpegInstalled
@@ -49,6 +53,7 @@ func TestProcess_MediaWithoutFFmpeg(t *testing.T) {
 	require.Error(t, ms.Process(context.Background(), filespec, &output))
 }
 
+// TestProcess_ContextCancelled confirms that Process fails when its context is already cancelled.
 func TestProcess_ContextCancelled(t *testing.T) {
 	// A cancelled context passed to Process aborts the FFmpeg run.
 	requireWorkingFFmpeg(t)
@@ -66,6 +71,7 @@ func TestProcess_ContextCancelled(t *testing.T) {
 	require.Error(t, ms.Process(ctx, filespec, &output))
 }
 
+// TestProcess_Image confirms that Process resizes a PNG into non-empty output.
 func TestProcess_Image(t *testing.T) {
 	requireWorkingFFmpeg(t)
 
@@ -80,6 +86,8 @@ func TestProcess_Image(t *testing.T) {
 	require.NotEmpty(t, output.Bytes())
 }
 
+// TestProcessArguments confirms the ffmpeg arguments built with no metadata, with plain metadata,
+// with a blocked cover URL, and with downloaded cover art.
 func TestProcessArguments(t *testing.T) {
 
 	ctx := context.Background()

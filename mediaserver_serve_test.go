@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestServeOriginal confirms that ServeOriginal writes the original bytes with a 200 status and an
+// octet-stream content type.
 func TestServeOriginal(t *testing.T) {
 	originals := afero.NewMemMapFs()
 	content := []byte("raw original bytes")
@@ -25,6 +27,7 @@ func TestServeOriginal(t *testing.T) {
 	require.Equal(t, content, recorder.Body.Bytes())
 }
 
+// TestServeOriginal_Missing confirms that ServeOriginal fails when the original does not exist.
 func TestServeOriginal_Missing(t *testing.T) {
 	ms := newTestServer(t, nil)
 	recorder := httptest.NewRecorder()
@@ -33,9 +36,8 @@ func TestServeOriginal_Missing(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestServe_CopyThrough exercises the full Serve pipeline (working file -> cache
-// -> Process) end-to-end. It uses a non-media file so the whole flow runs
-// without ffmpeg.
+// TestServe_CopyThrough confirms that Serve runs a non-media file through the full pipeline without
+// ffmpeg, returning its contents with immutable ETag and Cache-Control headers.
 func TestServe_CopyThrough(t *testing.T) {
 	originals := afero.NewMemMapFs()
 	content := []byte("the original document contents")
@@ -74,6 +76,8 @@ func TestServe_CopyThrough_UsesCache(t *testing.T) {
 	require.Equal(t, content, second.Body.Bytes())
 }
 
+// TestServe_ProcessingError confirms that Serve returns the error when processing a media file fails
+// because ffmpeg is unavailable.
 func TestServe_ProcessingError(t *testing.T) {
 	// A media file with ffmpeg unavailable fails during the processing step,
 	// and the error propagates out through Serve.
@@ -91,6 +95,7 @@ func TestServe_ProcessingError(t *testing.T) {
 	require.Error(t, ms.Serve(recorder, httptest.NewRequest(http.MethodGet, "/photo.jpg", nil), filespec))
 }
 
+// TestServe_Image confirms that Serve resizes a PNG into a non-empty response.
 func TestServe_Image(t *testing.T) {
 	requireWorkingFFmpeg(t)
 

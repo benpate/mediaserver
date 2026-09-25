@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestNewWorkingDirectory_DefaultFolder confirms that an empty folder defaults to the OS temp
+// directory.
 func TestNewWorkingDirectory_DefaultFolder(t *testing.T) {
 	// An empty folder argument defaults to the OS temp directory.
 	wd := NewWorkingDirectory("", time.Minute, 10)
@@ -19,6 +21,7 @@ func TestNewWorkingDirectory_DefaultFolder(t *testing.T) {
 	require.Equal(t, os.TempDir(), wd.folder)
 }
 
+// TestNewWorkingDirectory_CustomFolder confirms that NewWorkingDirectory uses the folder it is given.
 func TestNewWorkingDirectory_CustomFolder(t *testing.T) {
 	dir := t.TempDir()
 	wd := NewWorkingDirectory(dir, time.Minute, 10)
@@ -27,6 +30,7 @@ func TestNewWorkingDirectory_CustomFolder(t *testing.T) {
 	require.Equal(t, dir, wd.folder)
 }
 
+// TestWorkingDirectory_Filename confirms that filename joins a name onto the working folder.
 func TestWorkingDirectory_Filename(t *testing.T) {
 	wd := NewWorkingDirectory("/base/dir", time.Minute, 10)
 	t.Cleanup(wd.Close)
@@ -36,9 +40,8 @@ func TestWorkingDirectory_Filename(t *testing.T) {
 	require.Equal(t, filepath.Join("/base/dir", "file.txt"), filename)
 }
 
-// TestWorkingDirectory_FilenameEscape verifies that a name which would resolve
-// outside the working folder is rejected instead of being silently cleaned by
-// filepath.Join into a path somewhere else on the filesystem.
+// TestWorkingDirectory_FilenameEscape confirms that filename rejects an empty name and any name that
+// would resolve outside the working folder.
 func TestWorkingDirectory_FilenameEscape(t *testing.T) {
 	wd := NewWorkingDirectory("/base/dir", time.Minute, 10)
 	t.Cleanup(wd.Close)
@@ -74,6 +77,8 @@ func TestWorkingDirectory_WriteEscape(t *testing.T) {
 	require.True(t, os.IsNotExist(err), "must not write outside the working directory")
 }
 
+// TestWorkingDirectory_WriteExistsOpen confirms that a written file then exists and opens with the
+// same contents.
 func TestWorkingDirectory_WriteExistsOpen(t *testing.T) {
 	wd := NewWorkingDirectory(t.TempDir(), time.Minute, 10)
 	t.Cleanup(wd.Close)
@@ -92,6 +97,7 @@ func TestWorkingDirectory_WriteExistsOpen(t *testing.T) {
 	require.Equal(t, "AAA", string(contents))
 }
 
+// TestWorkingDirectory_OpenMissing confirms that Open fails for a file that was never written.
 func TestWorkingDirectory_OpenMissing(t *testing.T) {
 	wd := NewWorkingDirectory(t.TempDir(), time.Minute, 10)
 	t.Cleanup(wd.Close)
@@ -100,6 +106,7 @@ func TestWorkingDirectory_OpenMissing(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TestWorkingDirectory_WriteError confirms that Write fails when the working folder does not exist.
 func TestWorkingDirectory_WriteError(t *testing.T) {
 	// Writing into a folder that does not exist fails at os.Create.
 	wd := NewWorkingDirectory(filepath.Join(t.TempDir(), "does", "not", "exist"), time.Minute, 10)
@@ -109,6 +116,7 @@ func TestWorkingDirectory_WriteError(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TestWorkingDirectory_WriteCopyError confirms that Write fails when its reader returns an error.
 func TestWorkingDirectory_WriteCopyError(t *testing.T) {
 	// The file is created, but copying from a failing reader errors out.
 	wd := NewWorkingDirectory(t.TempDir(), time.Minute, 10)
@@ -117,6 +125,8 @@ func TestWorkingDirectory_WriteCopyError(t *testing.T) {
 	require.Error(t, wd.Write("a.txt", errorReader{}))
 }
 
+// TestWorkingDirectory_WriteReplaceTriggersListener confirms that writing the same name twice
+// leaves the file on disk after the cache replaces the entry.
 func TestWorkingDirectory_WriteReplaceTriggersListener(t *testing.T) {
 	// Writing the same name twice replaces the cache entry, which exercises the
 	// deletion listener's "Replaced" branch (it must not delete the file).
@@ -158,10 +168,7 @@ func TestWorkingDirectory_RemoveAllAndClose(t *testing.T) {
 	require.NotPanics(t, wd.RemoveAll)
 }
 
-// TestWorkingDirectory_CloseRemovesFiles verifies that Close actually deletes the
-// working files. The cache notifies its deletion listener asynchronously, so a
-// Clear that only queues those notifications would be undone by the Close that
-// immediately follows it, stranding every file on disk.
+// TestWorkingDirectory_CloseRemovesFiles confirms that Close deletes every working file from disk.
 func TestWorkingDirectory_CloseRemovesFiles(t *testing.T) {
 
 	dir := t.TempDir()
@@ -170,6 +177,8 @@ func TestWorkingDirectory_CloseRemovesFiles(t *testing.T) {
 	require.NoError(t, wd.Write("a.txt", strings.NewReader("AAA")))
 	require.NoError(t, wd.Write("b.txt", strings.NewReader("BBB")))
 
+	// The cache notifies its deletion listener asynchronously, so a Clear that only
+	// queued those notifications would be undone by the Close that follows it
 	wd.Close()
 
 	entries, err := os.ReadDir(dir)

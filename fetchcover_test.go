@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestFetchCover_BlocksInternalAddress confirms that the default policy refuses to fetch from a
+// loopback server.
 func TestFetchCover_BlocksInternalAddress(t *testing.T) {
 	// An httptest server listens on loopback; with the default (secure) policy the
 	// remote client must refuse to connect to it. This is the core SSRF
@@ -28,6 +30,7 @@ func TestFetchCover_BlocksInternalAddress(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TestFetchCover_RejectsNonHTTPScheme confirms that file, data, and ftp URLs are rejected.
 func TestFetchCover_RejectsNonHTTPScheme(t *testing.T) {
 	ms := newTestServer(t, nil)
 
@@ -41,6 +44,7 @@ func TestFetchCover_RejectsNonHTTPScheme(t *testing.T) {
 	}
 }
 
+// TestFetchCover_RejectsDisallowedHost confirms that a host missing from the allow-list is rejected.
 func TestFetchCover_RejectsDisallowedHost(t *testing.T) {
 	// With an allow-list configured, a host that is not on it is rejected before
 	// any connection is attempted.
@@ -50,6 +54,8 @@ func TestFetchCover_RejectsDisallowedHost(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TestFetchCover_AllowsPublicDownload confirms that, with private IPs allowed, fetchCover downloads
+// the response body into a temp file.
 func TestFetchCover_AllowsPublicDownload(t *testing.T) {
 	// WithAllowPrivateIPs(true) permits loopback, so we can verify the happy path
 	// (download into a size-limited temp file) against a local httptest server.
@@ -70,11 +76,8 @@ func TestFetchCover_AllowsPublicDownload(t *testing.T) {
 	require.Equal(t, body, contents)
 }
 
-// FuzzFetchCover throws arbitrary URL strings at fetchCover to confirm its
-// invariants under the default (secure) policy: it never panics, and it always
-// rejects a URL whose scheme is not http/https before any network access. We do
-// NOT assert that fetching always fails — a syntactically valid http(s) URL may
-// resolve to a reachable public host, which the SSRF guard permits by design.
+// FuzzFetchCover confirms that, under the default policy, fetchCover never panics on an arbitrary
+// URL, returns no filename on failure, and rejects any scheme other than http or https.
 func FuzzFetchCover(f *testing.F) {
 
 	// Seed with a mix of valid-looking, malformed, and dangerous inputs.
@@ -100,17 +103,15 @@ func FuzzFetchCover(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, rawURL string) {
 
-		// Use a short deadline so a syntactically valid URL pointing at an
-		// unresponsive public host fails fast instead of blocking the fuzzer on
-		// the remote client's default network timeout. This keeps the fuzzer
-		// exercising URL parsing and validation, not real network latency.
+		// A short deadline keeps an unresponsive public host from blocking the
+		// fuzzer on the remote client's default network timeout.
 		ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 		defer cancel()
 
 		filename, err := ms.fetchCover(ctx, rawURL)
 
-		// A successful fetch returns a real temp file; clean it up. (This can
-		// happen for a valid http(s) URL that resolves to a reachable public host.)
+		// A valid http(s) URL may reach a public host, which the SSRF guard permits,
+		// so success is allowed; clean up the temp file it returns.
 		if err == nil {
 			_ = os.Remove(filename)
 			require.NotEmpty(t, filename, "a successful fetch must return a filename for %q", rawURL)
@@ -130,6 +131,8 @@ func FuzzFetchCover(f *testing.F) {
 	})
 }
 
+// TestGetCoverPhoto_EndToEnd confirms that getCoverPhoto downloads and resizes a PNG from a loopback
+// server into a non-empty file.
 func TestGetCoverPhoto_EndToEnd(t *testing.T) {
 	// Serve a real PNG from a loopback server, allow loopback for this test, and
 	// confirm getCoverPhoto downloads + resizes it into a non-empty file.

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestMediaServer confirms that New returns a MediaServer.
 func TestMediaServer(t *testing.T) {
 
 	mockOriginals := afero.NewMemMapFs()

@@ -12,14 +12,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newNestedServer returns a MediaServer whose "processed" cache is an OS folder behind TWO
-// BasePathFs layers, as Emissary builds it: one for the configured location, one per hostname.
-// In that layering a file's Name() does not round-trip back through the outer BasePathFs, which
-// the in-memory filesystems used elsewhere in these tests cannot show.
+// newNestedServer returns a MediaServer, and its processed cache, where the cache is an OS folder
+// behind two BasePathFs layers as Emissary builds it: one for the location, one per hostname.
 func newNestedServer(t *testing.T, original afero.Fs) (MediaServer, afero.Fs) {
 
 	t.Helper()
 
+	// In this layering a file's Name() does not round-trip through the outer
+	// BasePathFs, which the in-memory filesystems used elsewhere cannot show
 	location := afero.NewBasePathFs(afero.NewOsFs(), t.TempDir())
 	require.NoError(t, location.MkdirAll("localhost", 0777))
 	processed := afero.NewBasePathFs(location, "localhost")
@@ -31,15 +31,15 @@ func newNestedServer(t *testing.T, original afero.Fs) (MediaServer, afero.Fs) {
 }
 
 // TestServe_FailureLeavesNoCacheFile confirms that a failed request leaves nothing in the processed
-// cache, so the next request processes the file again.  A request that arrives before the original
-// is stored must not poison the cache for every request after it.
+// cache, so the next request processes the file again.
 func TestServe_FailureLeavesNoCacheFile(t *testing.T) {
 
 	originals := afero.NewMemMapFs()
 	ms, processed := newNestedServer(t, originals)
 	filespec := FileSpec{Filename: "document", OriginalExtension: ".txt", Extension: ".txt", Cache: true}
 
-	// The original is not stored yet, so this request fails
+	// The original is not stored yet, so this request fails, and it must not
+	// poison the cache for every request after it
 	early := httptest.NewRecorder()
 	require.Error(t, ms.Serve(early, httptest.NewRequest(http.MethodGet, "/document", nil), filespec))
 
@@ -57,8 +57,7 @@ func TestServe_FailureLeavesNoCacheFile(t *testing.T) {
 }
 
 // TestServe_EmptyCacheFileIsReprocessed confirms that a zero-length file in the processed cache is
-// treated as missing.  Earlier versions left one behind after every failed request, and serving it
-// would return an empty body forever.
+// treated as missing, and the original is served in its place.
 func TestServe_EmptyCacheFileIsReprocessed(t *testing.T) {
 
 	originals := afero.NewMemMapFs()
@@ -68,7 +67,8 @@ func TestServe_EmptyCacheFileIsReprocessed(t *testing.T) {
 	ms, processed := newNestedServer(t, originals)
 	filespec := FileSpec{Filename: "document", OriginalExtension: ".txt", Extension: ".txt", Cache: true}
 
-	// A cache file left empty by an earlier failure
+	// A cache file left empty by an earlier failure, which would otherwise be
+	// served as an empty body forever
 	require.NoError(t, processed.MkdirAll(filespec.ProcessedDir(), 0777))
 	require.NoError(t, afero.WriteFile(processed, filespec.ProcessedPath(), []byte{}, 0777))
 

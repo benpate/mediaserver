@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestDelete confirms that Delete removes the original file.
 func TestDelete(t *testing.T) {
 	originals := afero.NewMemMapFs()
 	require.NoError(t, afero.WriteFile(originals, "file.txt", []byte("data"), 0777))
@@ -22,6 +23,7 @@ func TestDelete(t *testing.T) {
 	require.False(t, exists)
 }
 
+// TestDelete_OriginalError confirms that Delete fails when the original cannot be removed.
 func TestDelete_OriginalError(t *testing.T) {
 	// Removing from a read-only filesystem fails.
 	readOnly := afero.NewReadOnlyFs(afero.NewMemMapFs())
@@ -30,6 +32,7 @@ func TestDelete_OriginalError(t *testing.T) {
 	require.Error(t, ms.Delete("missing.txt"))
 }
 
+// TestDelete_ProcessedError confirms that Delete fails when the processed cache cannot be removed.
 func TestDelete_ProcessedError(t *testing.T) {
 	// The original is removable, but the processed filesystem is read-only, so
 	// removing the cached files fails.
@@ -43,9 +46,8 @@ func TestDelete_ProcessedError(t *testing.T) {
 	require.Error(t, ms.Delete("file.txt"))
 }
 
-// TestDelete_PurgesWorkingDirectory verifies that Delete removes the local working
-// copies as well as the original and the cache. Serve consults the working
-// directory first, so a leftover copy would keep serving a deleted file.
+// TestDelete_PurgesWorkingDirectory confirms that Delete removes the local working copies as well
+// as the original, so a later Serve fails instead of returning the deleted content.
 func TestDelete_PurgesWorkingDirectory(t *testing.T) {
 
 	originals := afero.NewMemMapFs()
@@ -67,7 +69,8 @@ func TestDelete_PurgesWorkingDirectory(t *testing.T) {
 	require.NoError(t, ms.Delete("file.txt"))
 	require.False(t, ms.working.Exists(filespec.WorkingFilename()), "working copy must not survive Delete")
 
-	// A second request must now fail, rather than serving the deleted content
+	// Serve checks the working directory first, so a leftover copy would keep
+	// serving the deleted content; this second request must fail instead
 	second := httptest.NewRecorder()
 	err := ms.Serve(second, httptest.NewRequest(http.MethodGet, "/file.txt", nil), filespec)
 	require.Error(t, err)

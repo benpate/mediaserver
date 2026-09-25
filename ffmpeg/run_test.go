@@ -22,6 +22,7 @@ func requireFFmpeg(t *testing.T) {
 	}
 }
 
+// TestRun_Success confirms that Run returns no error when ffmpeg exits zero.
 func TestRun_Success(t *testing.T) {
 	requireFFmpeg(t)
 
@@ -29,6 +30,7 @@ func TestRun_Success(t *testing.T) {
 	require.NoError(t, Run(context.Background(), "-version"))
 }
 
+// TestRun_Error confirms that Run returns an error when ffmpeg exits non-zero.
 func TestRun_Error(t *testing.T) {
 	requireFFmpeg(t)
 
@@ -36,6 +38,7 @@ func TestRun_Error(t *testing.T) {
 	require.Error(t, Run(context.Background(), "-definitely-not-a-real-flag"))
 }
 
+// TestRun_ContextCancelled confirms that Run fails when its context is already cancelled.
 func TestRun_ContextCancelled(t *testing.T) {
 	requireFFmpeg(t)
 

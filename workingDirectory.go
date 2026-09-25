@@ -16,8 +16,8 @@ type WorkingDirectory struct {
 	folder  string                     // local folder that holds the working files
 	cache   otter.Cache[string, int64] // expiration time (unix seconds) of each working file, by name
 	ttl     time.Duration              // how long an unused working file is kept
-	done    chan struct{} // closed by Close to signal the background goroutine to stop
-	stopped chan struct{} // closed by the background goroutine once it has exited
+	done    chan struct{}              // closed by Close to signal the background goroutine to stop
+	stopped chan struct{}              // closed by the background goroutine once it has exited
 }
 
 // NewWorkingDirectory returns a fully initialized WorkingDirectory. It launches a

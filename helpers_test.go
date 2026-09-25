@@ -14,9 +14,8 @@ import (
 	"github.com/spf13/afero"
 )
 
-// init registers the audio/video extensions the tests rely on, so that
-// mime.TypeByExtension resolves them deterministically regardless of the host
-// operating system's mime database.
+// init registers the audio and video extensions the tests rely on, so mime.TypeByExtension
+// resolves them the same way regardless of the host's mime database.
 func init() {
 	for ext, mimeType := range map[string]string{
 		".mp3":  "audio/mpeg",
@@ -34,10 +33,7 @@ func init() {
 	}
 }
 
-// requireWorkingFFmpeg skips the calling test unless ffmpeg is both installed
-// AND able to execute. Checking IsInstalled alone is not enough: ffmpeg may be
-// on the PATH yet fail to run (e.g. missing shared libraries), and CI machines
-// frequently have no ffmpeg at all.
+// requireWorkingFFmpeg skips the calling test unless ffmpeg is both installed and able to run.
 func requireWorkingFFmpeg(t *testing.T) {
 	t.Helper()
 
@@ -45,14 +41,14 @@ func requireWorkingFFmpeg(t *testing.T) {
 		t.Skip("ffmpeg is not installed; skipping ffmpeg-dependent test")
 	}
 
+	// ffmpeg may be on the PATH yet fail to run, e.g. with missing shared libraries
 	if err := exec.Command("ffmpeg", "-version").Run(); err != nil {
 		t.Skipf("ffmpeg is present but cannot run (%v); skipping ffmpeg-dependent test", err)
 	}
 }
 
-// newTestServer returns a MediaServer backed by in-memory "original" and
-// "processed" filesystems and a working directory in a temporary folder. The
-// working directory is closed automatically when the test finishes.
+// newTestServer returns a MediaServer over the given (or an in-memory) original filesystem, an
+// in-memory processed cache, and a temporary working directory that closes when the test ends.
 func newTestServer(t testing.TB, original afero.Fs, opts ...Option) MediaServer {
 	t.Helper()
 
